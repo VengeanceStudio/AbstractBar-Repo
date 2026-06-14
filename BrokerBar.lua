@@ -1097,36 +1097,53 @@ function BrokerBar:CreateWidget(name, obj)
             widgets[name] = btn
         end
     end
-    btn:SetScript("OnEnter", function(self) 
-        if obj.OnEnter then 
-            obj.OnEnter(self) 
-        elseif obj.OnTooltipShow then 
-            GameTooltip:SetOwner(self, "ANCHOR_NONE")
-            SmartAnchor(GameTooltip, self)
-            obj.OnTooltipShow(GameTooltip)
-            -- FORCE STYLE FOR ALL TOOLTIPS
-            ApplyTooltipStyle(GameTooltip)
-            GameTooltip:Show() 
-        end 
-        -- Fallback check for addons that use weird tooltip methods
-        if GameTooltip:IsShown() and GameTooltip:GetOwner() == self then
-             ApplyTooltipStyle(GameTooltip)
-        end
-    end)
-    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    btn:SetScript("OnClick", function(self, button) 
-        if name == "AbstractLocation" then 
-            ToggleWorldMap() 
-        elseif obj.OnClick then 
-            obj.OnClick(self, button) 
-        end 
-    end)
-    btn:EnableMouseWheel(true)
-    btn:SetScript("OnMouseWheel", function(self, delta) 
-        if obj.OnMouseWheel then 
-            obj.OnMouseWheel(obj, delta) 
-        end 
-    end)
+    
+    -- Skip script handlers for Actions broker (it handles them internally on its buttons)
+    if name ~= "AbstractActions" then
+        btn:SetScript("OnEnter", function(self) 
+            if obj.OnEnter then 
+                obj.OnEnter(self) 
+            elseif obj.OnTooltipShow then 
+                GameTooltip:SetOwner(self, "ANCHOR_NONE")
+                SmartAnchor(GameTooltip, self)
+                obj.OnTooltipShow(GameTooltip)
+                -- FORCE STYLE FOR ALL TOOLTIPS
+                ApplyTooltipStyle(GameTooltip)
+                GameTooltip:Show() 
+            end 
+            -- Fallback check for addons that use weird tooltip methods
+            if GameTooltip:IsShown() and GameTooltip:GetOwner() == self then
+                 ApplyTooltipStyle(GameTooltip)
+            end
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        btn:SetScript("OnClick", function(self, button) 
+            if name == "AbstractLocation" then 
+                ToggleWorldMap() 
+            elseif obj.OnClick then 
+                obj.OnClick(self, button) 
+            end 
+        end)
+        btn:EnableMouseWheel(true)
+        btn:SetScript("OnMouseWheel", function(self, delta) 
+            if obj.OnMouseWheel then 
+                obj.OnMouseWheel(obj, delta) 
+            end 
+        end)
+    else
+        -- For Actions broker, set up tooltip on the main frame
+        btn:SetScript("OnEnter", function(self) 
+            if obj.OnTooltipShow then 
+                GameTooltip:SetOwner(self, "ANCHOR_NONE")
+                SmartAnchor(GameTooltip, self)
+                obj.OnTooltipShow(GameTooltip)
+                ApplyTooltipStyle(GameTooltip)
+                GameTooltip:Show() 
+            end 
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    
     LDB.RegisterCallback(self, "LibDataBroker_AttributeChanged_"..name, function() 
         local config = BrokerBar:GetSafeConfig(name)
         if config and config.bar and config.bar ~= "None" then
