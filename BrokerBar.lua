@@ -778,7 +778,7 @@ function BrokerBar:UpdateBarLayout(barID)
                 
                 -- Special width for Actions broker
                 if name == "AbstractQuickActions" then
-                    totalW = totalW + 106 + self.db.profile.spacing
+                    totalW = totalW + 86 + self.db.profile.spacing
                 else
                     -- FIXED TEXT CONSTRUCTION FOR WIDTH CALC
                     local bCfg = self:GetSafeConfig(name)
@@ -815,7 +815,7 @@ function BrokerBar:UpdateBarLayout(barID)
             
             -- Special handling for Actions broker
             if name == "AbstractQuickActions" then
-                w:SetSize(106, db.height)
+                w:SetSize(86, db.height)
                 -- Update button fonts to match theme
                 for _, ab in ipairs(w.actionButtons or {}) do
                     ab:SetHeight(db.height - 4)
@@ -1023,7 +1023,7 @@ function BrokerBar:CreateWidget(name, obj)
         -- Special handling for Actions broker - create custom multi-button widget
         if name == "AbstractQuickActions" then
             btn = CreateFrame("Frame", nil, UIParent)
-            btn:SetSize(106, 24)
+            btn:SetSize(86, 24)
             btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             btn.icon = btn:CreateTexture(nil, "ARTWORK")
             btn.icon:Hide() -- Actions doesn't use main icon
@@ -1053,8 +1053,8 @@ function BrokerBar:CreateWidget(name, obj)
             btn.actionButtons = {}
             for i, action in ipairs(actions) do
                 local ab = CreateFrame("Button", nil, btn)
-                ab:SetSize(24, 20)
-                ab:SetPoint("LEFT", (i-1) * 26 + 2, 0)
+                ab:SetSize(20, 20)
+                ab:SetPoint("LEFT", (i-1) * 22 + 2, 0)
                 
                 -- Background
                 ab.bg = ab:CreateTexture(nil, "BACKGROUND")
