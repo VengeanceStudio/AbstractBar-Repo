@@ -1030,21 +1030,19 @@ function BrokerBar:CreateWidget(name, obj)
             
             -- Create 4 action buttons
             local actions = {
-                {label = "R", func = function() ReloadUI() end, tooltip = "Reload UI"},
-                {label = "E", func = function() 
+                {label = "R", secure = false, func = function() ReloadUI() end, tooltip = "Reload UI"},
+                {label = "E", secure = false, func = function() 
                     if EditModeManagerFrame then EditModeManagerFrame:Show() 
                     else SlashCmdList["EDITMODE"]("") end 
                 end, tooltip = "Edit Mode"},
-                {label = "L", func = function() Logout() end, tooltip = "Logout"},
-                {label = "A", func = function() 
-                    if AddonList and AddonList:IsVisible() then AddonList:Hide()
-                    else
-                        if Settings and Settings.OpenToCategory then
-                            for _, category in ipairs(Settings.GetCategoryList()) do
-                                if category.name == ADDONS then Settings.OpenToCategory(category:GetID()) return end
-                            end
-                        elseif InterfaceOptionsFrame_OpenToCategory then
-                            InterfaceOptionsFrame_OpenToCategory(ADDONS)
+                {label = "L", secure = true, macro = "/logout", tooltip = "Logout"},
+                {label = "A", secure = false, func = function() 
+                    -- Toggle the addon list frame
+                    if AddonList then
+                        if AddonList:IsShown() then
+                            AddonList:Hide()
+                        else
+                            ShowUIPanel(AddonList)
                         end
                     end
                 end, tooltip = "Addon List"}
@@ -1052,7 +1050,16 @@ function BrokerBar:CreateWidget(name, obj)
             
             btn.actionButtons = {}
             for i, action in ipairs(actions) do
-                local ab = CreateFrame("Button", nil, btn)
+                -- Use SecureActionButton for protected functions, regular Button otherwise
+                local ab
+                if action.secure then
+                    ab = CreateFrame("Button", nil, btn, "SecureActionButtonTemplate")
+                    ab:SetAttribute("type", "macro")
+                    ab:SetAttribute("macrotext", action.macro)
+                else
+                    ab = CreateFrame("Button", nil, btn)
+                end
+                
                 ab:SetSize(20, 20)
                 ab:SetPoint("LEFT", (i-1) * 22 + 2, 0)
                 
@@ -1070,9 +1077,11 @@ function BrokerBar:CreateWidget(name, obj)
                 ab:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
                 ab:GetHighlightTexture():SetBlendMode("ADD")
                 
-                -- Click handler
-                ab:RegisterForClicks("AnyUp")
-                ab:SetScript("OnClick", action.func)
+                -- Click handler (only for non-secure buttons)
+                if not action.secure then
+                    ab:RegisterForClicks("AnyUp")
+                    ab:SetScript("OnClick", action.func)
+                end
                 
                 -- Simple tooltip
                 ab:SetScript("OnEnter", function(self)
