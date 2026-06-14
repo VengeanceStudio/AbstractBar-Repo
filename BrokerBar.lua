@@ -1056,8 +1056,10 @@ function BrokerBar:CreateWidget(name, obj)
                     ab = CreateFrame("Button", nil, btn, "SecureActionButtonTemplate")
                     ab:SetAttribute("type", "macro")
                     ab:SetAttribute("macrotext", action.macro)
+                    ab:RegisterForClicks("AnyUp")
                 else
                     ab = CreateFrame("Button", nil, btn)
+                    ab:RegisterForClicks("AnyUp")
                 end
                 
                 ab:SetSize(20, 20)
@@ -1079,7 +1081,6 @@ function BrokerBar:CreateWidget(name, obj)
                 
                 -- Click handler (only for non-secure buttons)
                 if not action.secure then
-                    ab:RegisterForClicks("AnyUp")
                     ab:SetScript("OnClick", action.func)
                 end
                 
