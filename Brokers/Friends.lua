@@ -1,0 +1,256 @@
+-- AbstractBar Friends Broker
+-- Displays online friends count and provides a popup with detailed friend list
+
+local LDB = LibStub("LibDataBroker-1.1")
+local LSM = LibStub("LibSharedMedia-3.0")
+local friendsFrame, friendTitle, friendFooter, scrollChild, listSeparator
+local headerRefs = {}
+local friendObj
+
+-- Create the friends popup frame
+local function CreateFriendsFrame()
+    if friendsFrame then return end
+    friendsFrame = CreateFrame("Frame", "AbstractFriendsPopup", UIParent, "BackdropTemplate")
+    friendsFrame:SetSize(600, 400); friendsFrame:SetFrameStrata("DIALOG"); friendsFrame:EnableMouse(true); friendsFrame:Hide()
+    -- Don't skin on creation, wait for OnShow to apply themed backdrop
+    friendTitle = friendsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    friendTitle:SetPoint("TOP", 0, -10); friendTitle:SetText("Friends List")
+
+    friendFooter = friendsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    friendFooter:SetPoint("BOTTOM", 0, 8); friendFooter:SetText("|cff00ff00Click: Whisper • Ctrl-Click: Invite|r")
+
+    local fScroll = CreateFrame("ScrollFrame", nil, friendsFrame, "UIPanelScrollFrameTemplate")
+    fScroll:SetPoint("TOPLEFT", 10, -55); fScroll:SetPoint("BOTTOMRIGHT", -25, 25)
+    scrollChild = CreateFrame("Frame"); scrollChild:SetSize(560, 1); fScroll:SetScrollChild(scrollChild)
+    listSeparator = scrollChild:CreateTexture(nil, "ARTWORK"); listSeparator:SetHeight(1); listSeparator:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+
+    local fHeader = CreateFrame("Frame", nil, friendsFrame)
+    fHeader:SetPoint("TOPLEFT", 10, -30); fHeader:SetSize(560, 20)
+    
+    -- Create horizontal line after headers
+    local headerLine = friendsFrame:CreateTexture(nil, "ARTWORK")
+    headerLine:SetHeight(1)
+    headerLine:SetColorTexture(0.5, 0.5, 0.5, 0.8)
+    headerLine:SetPoint("TOPLEFT", 10, -50)
+    headerLine:SetPoint("TOPRIGHT", -25, -50)
+    
+    local function CreateHeader(text, width, xPos)
+        local fs = fHeader:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetText(text); fs:SetWidth(width); fs:SetJustifyH("LEFT"); fs:SetPoint("LEFT", xPos, 0)
+        table.insert(headerRefs, fs) 
+    end
+    -- Columns reordered: Character, Level, Zone, Realm, Faction, BattleTag
+    local colW = { char=100, lvl=30, zone=120, realm=80, fac=50, btag=135 }
+    local colX = { char=5, lvl=110, zone=145, realm=270, fac=355, btag=410 }
+    CreateHeader("Character", colW.char, colX.char); CreateHeader("Lvl", colW.lvl, colX.lvl)
+    CreateHeader("Zone", colW.zone, colX.zone); CreateHeader("Realm", colW.realm, colX.realm)
+    CreateHeader("Faction", colW.fac, colX.fac); CreateHeader("BattleTag", colW.btag, colX.btag)
+
+    -- Add OnShow script to update fonts/colors dynamically
+    friendsFrame:SetScript("OnShow", function()
+        -- Set backdrop
+        friendsFrame:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = false,
+            tileSize = 0,
+            edgeSize = 2,
+            insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        })
+        friendsFrame:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+        friendsFrame:SetBackdropBorderColor(0, 0, 0, 1)
+        
+        -- Refresh fonts with current settings        
+        local db = BrokerBar.db.profile
+        local fontPath = LSM:Fetch("font", db.font) or "Fonts\\FRIZQT__.ttf"
+        local titleSize = db.fontSize + 2
+        local bodySize = db.fontSize
+        local fontFlags = "OUTLINE"
+        local r, g, b = GetColor()
+        
+        -- Update title
+        friendTitle:SetFont(fontPath, titleSize, fontFlags)
+        friendTitle:SetTextColor(r, g, b)
+        
+        -- Update footer
+        friendFooter:SetFont(fontPath, bodySize, fontFlags)
+        
+        -- Update headers
+        for _, fs in ipairs(headerRefs) do
+            fs:SetFont(fontPath, bodySize, fontFlags)
+            fs:SetTextColor(r, g, b)
+        end
+    end)
+
+    friendsFrame:SetScript("OnUpdate", function(self, elapsed)
+        if MouseIsOver(self) or (self.owner and MouseIsOver(self.owner)) then 
+            self.timer = 0
+        else 
+            self.timer = (self.timer or 0) + elapsed
+            if self.timer > 0.2 then 
+                self:Hide() 
+            end 
+        end
+    end)
+end
+
+local function UpdateFriendList()
+    if not scrollChild then return end
+    for _, child in ipairs({scrollChild:GetChildren()}) do 
+        child:Hide() 
+    end
+    
+    -- Only collect WoW friends (in-game only)
+    local wowFriends = {}
+    local numBNet = BNGetNumFriends() or 0
+    for i = 1, numBNet do
+        local info = C_BattleNet.GetFriendAccountInfo(i)
+        if info and info.gameAccountInfo and info.gameAccountInfo.isOnline then
+            local g = info.gameAccountInfo
+            if (g.clientProgram == BNET_CLIENT_WOW) and (g.wowProjectID == 1) then
+                -- Use classID to get proper class token for coloring
+                local classToken = g.className
+                if g.classID then
+                    local classInfo = C_CreatureInfo.GetClassInfo(g.classID)
+                    if classInfo then
+                        classToken = classInfo.classFile
+                    end
+                end
+                -- Include accountName (battleTag) and gameAccountID for proper BNet invites/whispers
+                table.insert(wowFriends, {
+                    name=g.characterName, 
+                    bnet=info.battleTag, 
+                    level=g.characterLevel, 
+                    zone=g.areaName, 
+                    realm=g.realmName, 
+                    faction=g.factionName, 
+                    class=classToken or g.className,
+                    accountName=info.accountName,  -- BattleTag for whispers
+                    gameAccountID=g.gameAccountID,
+                    isBNetFriend=true
+                })
+            end
+        end
+    end
+
+    local yOffset, db, fontPath = 0, BrokerBar.db.profile, LSM:Fetch("font", BrokerBar.db.profile.font)
+    -- Reordered columns: Character, Level, Zone, Realm, Faction, BattleTag
+    local colW = { char=100, lvl=30, zone=120, realm=80, fac=50, btag=135 }
+    local colX = { char=5, lvl=110, zone=145, realm=270, fac=355, btag=410 }
+
+    local function CreateRow(data, isWoW)
+        local btn = CreateFrame("Button", nil, scrollChild); btn:SetSize(560, 20); btn:SetPoint("TOPLEFT", 0, yOffset)
+        local function AddText(t, w, x, c)
+            local fs = btn:CreateFontString(nil, "OVERLAY"); fs:SetFont(fontPath, db.fontSize, "OUTLINE")
+            local sT = tostring(t or "")
+            if #sT > 20 then 
+                sT = sT:sub(1, 20).."..." 
+            end
+            fs:SetText(sT); fs:SetWidth(w); fs:SetJustifyH("LEFT"); fs:SetPoint("LEFT", x, 0)
+            if c then fs:SetTextColor(c.r, c.g, c.b) end
+        end
+        if isWoW then
+            local cToken = classTokenLookup[data.class] or data.class
+            -- Use RAID_CLASS_COLORS instead of C_ClassColor
+            local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[cToken] or {r=1,g=1,b=1}
+            -- Reordered: Character, Level, Zone, Realm, Faction, BattleTag
+            AddText(data.name, colW.char, colX.char, color)
+            AddText(data.level, colW.lvl, colX.lvl, {r=1,g=1,b=1})
+            AddText(data.zone, colW.zone, colX.zone, {r=1,g=0.82,b=0})
+            AddText(data.realm, colW.realm, colX.realm, {r=1,g=1,b=1})
+            
+            -- Display faction as colored text
+            local facIcon = ""
+            if data.faction == "Horde" then
+                facIcon = "|cffff0000Horde|r"
+            elseif data.faction == "Alliance" then
+                facIcon = "|cff0080ffAlliance|r"
+            end
+            AddText(facIcon, colW.fac, colX.fac)
+            
+            -- BattleTag moved to last column
+            AddText(data.bnet, colW.btag, colX.btag, {r=0.51,g=0.77,b=1})
+
+            btn:SetScript("OnClick", function() 
+                if IsControlKeyDown() then 
+                    -- Invite - use BNet invite for cross-realm friends
+                    if data.bnetAccountID then
+                        BNInviteFriend(data.gameAccountID)
+                    else
+                        -- Fallback to regular invite for non-BNet friends
+                        local t = data.name
+                        if data.realm then 
+                            t = t .. "-" .. data.realm:gsub("%s+",""):gsub("'", "")
+                        end
+                        C_PartyInfo.InviteUnit(t)
+                    end
+                else 
+                    -- Whisper
+                    if data.isBNetFriend and data.accountName then
+                        -- For BNet friends, use BNet whisper (works cross-realm)
+                        if ChatFrameUtil and ChatFrameUtil.SendBNetTell then
+                            ChatFrameUtil.SendBNetTell(data.accountName)
+                        elseif ChatFrame_SendBNetTell then
+                            ChatFrame_SendBNetTell(data.accountName)
+                        else
+                            -- Fallback to character name whisper
+                            local t = data.name
+                            if data.realm and data.realm ~= GetRealmName() then 
+                                t = t .. "-" .. data.realm:gsub("%s+",""):gsub("'", "")
+                            end
+                            if ChatFrameUtil and ChatFrameUtil.SendTell then
+                                ChatFrameUtil.SendTell(t)
+                            else
+                                ChatFrame_OpenChat("/w " .. t .. " ")
+                            end
+                        end
+                    else
+                        -- For regular WoW friends, use standard whisper
+                        local t = data.name
+                        if data.realm and data.realm ~= GetRealmName() then 
+                            t = t .. "-" .. data.realm:gsub("%s+",""):gsub("'", "")
+                        end
+                        if ChatFrameUtil and ChatFrameUtil.SendTell then
+                            ChatFrameUtil.SendTell(t)
+                        else
+                            ChatFrame_OpenChat("/w " .. t .. " ")
+                        end
+                    end
+                end
+            end)
+        end
+        local hl = btn:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1,1,1,0.1)
+        yOffset = yOffset - 20
+    end
+
+    -- Only display WoW friends
+    for _, f in ipairs(wowFriends) do 
+        CreateRow(f, true) 
+    end
+    
+    -- Hide separator since we're not showing non-WoW friends
+    listSeparator:Hide()
+    
+    -- Adjust scroll child height to fit content
+    local contentHeight = math.abs(yOffset) + 10
+    scrollChild:SetHeight(contentHeight)
+    
+    -- Adjust friends frame height dynamically (min 200, max 600)
+    local frameHeight = math.min(600, math.max(200, contentHeight + 90))
+    friendsFrame:SetHeight(frameHeight)
+end
+
+-- Register the broker
+friendObj = LDB:NewDataObject("AbstractFriends", {
+    type = "data source", text = "0", icon = "Interface\\FriendsFrame\\UI-Toast-ChatInviteIcon",
+    OnClick = function() ToggleFriendsFrame(1) end,
+    OnEnter = function(self) 
+        if not friendsFrame then 
+            CreateFriendsFrame() 
+        end
+        friendsFrame.owner = self
+        UpdateFriendList()
+        SmartAnchor(friendsFrame, self)
+        friendsFrame:Show() 
+    end
+})

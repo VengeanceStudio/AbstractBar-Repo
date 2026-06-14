@@ -1,0 +1,57 @@
+## Interface: 120007, 120005
+## Title: Abstract Bar
+## Version: 1.0.0
+## Notes: Lightweight Data Broker display bar with integrated broker modules.
+## Author: Vengeance
+## X-Website: https://github.com/VengeanceStudio/AbstractBar
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+## SavedVariables: AbstractBarDB
+## OptionalDeps: Ace3, LibSharedMedia-3.0, LibDataBroker-1.1
+
+# ------------------------------------------------------------------------------
+# LIBRARIES
+# ------------------------------------------------------------------------------
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+libs\LibSharedMedia-3.0\lib.xml
+
+# ------------------------------------------------------------------------------
+# ACE3 FRAMEWORK
+# ------------------------------------------------------------------------------
+libs\AceAddon-3.0\AceAddon-3.0.xml
+libs\AceConsole-3.0\AceConsole-3.0.xml
+libs\AceEvent-3.0\AceEvent-3.0.xml
+libs\AceDB-3.0\AceDB-3.0.xml
+libs\AceGUI-3.0\AceGUI-3.0.xml
+libs\AceConfig-3.0\AceConfig-3.0.xml
+
+# ------------------------------------------------------------------------------
+# CORE ENGINE
+# ------------------------------------------------------------------------------
+Core.lua
+
+# ------------------------------------------------------------------------------
+# BROKER MODULES
+# ------------------------------------------------------------------------------
+Brokers\Friends.lua
+Brokers\Guild.lua
+Brokers\Gold.lua
+Brokers\System.lua
+Brokers\Bags.lua
+Brokers\Token.lua
+Brokers\Volume.lua
+Brokers\Durability.lua
+Brokers\Location.lua
+Brokers\Difficulty.lua
+Brokers\ItemLevel.lua
+Brokers\Clock.lua
+Brokers\Crests.lua
+Brokers\Catalyst.lua
+Brokers\Delves.lua
+Brokers\MPlusTeleports.lua
+
+# ------------------------------------------------------------------------------
+# BROKER BAR
+# ------------------------------------------------------------------------------
+BrokerBar.lua

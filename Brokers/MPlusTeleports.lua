@@ -1,0 +1,408 @@
+-- AbstractBar M+ Teleports Broker
+-- Displays a list of Midnight Season 1 Mythic Plus dungeon teleports
+
+local LDB = LibStub("LibDataBroker-1.1")
+local LSM = LibStub("LibSharedMedia-3.0")
+local teleportFrame
+local teleportObj
+
+-- Midnight Season 1 (12.0) Mythic Plus Dungeons with their teleport spell IDs
+-- Spell IDs sourced from M+ Dungeon Teleports addon data
+local DUNGEON_TELEPORTS = {
+    { name = "Algeth'ar Academy", spellID = 393273 },
+    { name = "Maisara Caverns", spellID = 1254559 },
+    { name = "Magisters' Terrace", spellID = 1254572 },
+    { name = "Nexus-Point Xenas", spellID = 1254563 },
+    { name = "Pit of Saron", spellID = 1254555 },
+    { name = "Seat of the Triumvirate", spellID = 1254551 },
+    { name = "Skyreach", spellID = 159898 },
+    { name = "Windrunner Spire", spellID = 1254400 },
+}
+
+-- Create the teleports popup frame
+local function CreateTeleportFrame()
+    if teleportFrame then return end
+    
+    -- Size for exactly 8 dungeons: header (45px) + 8 buttons (30px each) + spacing (7 * 1px) + padding (15px top/bottom)
+    teleportFrame = CreateFrame("Frame", "AbstractMPlusTeleportsPopup", UIParent, "BackdropTemplate")
+    teleportFrame:SetSize(220, 305)
+    teleportFrame:SetFrameStrata("DIALOG")
+    teleportFrame:EnableMouse(true)
+    teleportFrame:Hide()
+    
+    -- Title
+    local titleText = teleportFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    titleText:SetPoint("TOP", 0, -10)
+    titleText:SetText("M+ Teleports - Season 1")
+    teleportFrame.title = titleText
+    
+    -- Subtitle
+    local subtitleText = teleportFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    subtitleText:SetPoint("TOP", 0, -29)
+    subtitleText:SetText("Midnight Dungeons")
+    subtitleText:SetTextColor(0.7, 0.7, 0.7)
+    teleportFrame.subtitle = subtitleText
+    
+    -- Container for dungeon list (no scroll needed for only 8 dungeons)
+    local buttonContainer = CreateFrame("Frame", nil, teleportFrame)
+    buttonContainer:SetPoint("TOPLEFT", 10, -48)
+    buttonContainer:SetPoint("BOTTOMRIGHT", -10, 10)
+    teleportFrame.scrollChild = buttonContainer
+    
+    -- Create all teleport buttons NOW (in secure context)
+    UpdateTeleportButtons()
+    
+    -- OnShow script to update fonts/colors dynamically
+    teleportFrame:SetScript("OnShow", function(self)
+        -- Set backdrop
+        self:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = false,
+            tileSize = 0,
+            edgeSize = 2,
+            insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        })
+        self:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+        self:SetBackdropBorderColor(0, 0, 0, 1)
+        
+        -- Refresh fonts with current settings        
+        local db = BrokerBar.db.profile
+        local fontPath = LSM:Fetch("font", db.font) or "Fonts\\FRIZQT__.ttf"
+        local titleSize = db.fontSize + 2
+        local bodySize = db.fontSize
+        local fontFlags = "OUTLINE"
+        
+        local r, g, b = GetColor()
+        
+        -- Update title
+        self.title:SetFont(fontPath, titleSize, fontFlags)
+        self.title:SetTextColor(r, g, b)
+        
+        -- Update subtitle
+        self.subtitle:SetFont(fontPath, bodySize - 2, fontFlags)
+        
+        -- Don't recreate buttons - they were created in secure context
+        -- Just update their fonts and colors based on current cooldown status
+        for i, child in ipairs({self.scrollChild:GetChildren()}) do
+            if child.nameText and DUNGEON_TELEPORTS[i] then
+                child.nameText:SetFont(fontPath, bodySize, "OUTLINE")
+                
+                -- Update text color based on cooldown status (only for learned spells)
+                local dungeon = DUNGEON_TELEPORTS[i]
+                if dungeon.spellID and C_SpellBook.IsSpellInSpellBook(dungeon.spellID) then
+                    local cooldownInfo = C_Spell.GetSpellCooldown(dungeon.spellID)
+                    if cooldownInfo and cooldownInfo.startTime > 0 and cooldownInfo.duration > 0 then
+                        -- Spell is on cooldown - show in RED
+                        child.nameText:SetTextColor(1, 0, 0)
+                    else
+                        -- Spell is available - show in WHITE
+                        child.nameText:SetTextColor(1, 1, 1)
+                    end
+                end
+            end
+        end
+    end)
+    
+    -- Auto-hide on mouse leave and update cooldown colors periodically
+    teleportFrame:SetScript("OnUpdate", function(self, elapsed)
+        if MouseIsOver(self) or (self.owner and MouseIsOver(self.owner)) then
+            self.timer = 0
+        else
+            self.timer = (self.timer or 0) + elapsed
+            if self.timer > 0.2 then
+                self:Hide()
+            end
+        end
+        
+        -- Update cooldown colors every 0.5 seconds
+        self.colorUpdateTimer = (self.colorUpdateTimer or 0) + elapsed
+        if self.colorUpdateTimer > 0.5 then
+            self.colorUpdateTimer = 0
+            
+            -- Update text colors based on current cooldown status
+            for i, child in ipairs({self.scrollChild:GetChildren()}) do
+                if child.nameText and DUNGEON_TELEPORTS[i] then
+                    local dungeon = DUNGEON_TELEPORTS[i]
+                    if dungeon.spellID and C_SpellBook.IsSpellInSpellBook(dungeon.spellID) then
+                        local cooldownInfo = C_Spell.GetSpellCooldown(dungeon.spellID)
+                        if cooldownInfo and cooldownInfo.startTime > 0 and cooldownInfo.duration > 0 then
+                            -- Spell is on cooldown - show in RED
+                            child.nameText:SetTextColor(1, 0, 0)
+                        else
+                            -- Spell is available - show in WHITE
+                            child.nameText:SetTextColor(1, 1, 1)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Update the teleport button list (called once during frame creation)
+function UpdateTeleportButtons()
+    if not teleportFrame or not teleportFrame.scrollChild then return end
+    
+    -- Use safe defaults during PLAYER_LOGIN (BrokerBar.db may not be ready yet)
+    local fontPath = "Fonts\\FRIZQT__.ttf"
+    local fontSize = 12
+    local yOffset = 0
+    local buttonWidth = 200  -- Compact width for sleek appearance
+    local buttonHeight = 30
+    local buttonSpacing = 31  -- 1px gap between buttons
+    
+    for i, dungeon in ipairs(DUNGEON_TELEPORTS) do
+        local hasSpell = false
+        local spellName = ""
+        local spellIcon = "Interface\\Icons\\INV_Misc_QuestionMark"
+        
+        -- Check if player knows the teleport spell
+        if dungeon.spellID and dungeon.spellID > 0 then
+            hasSpell = C_SpellBook.IsSpellInSpellBook(dungeon.spellID)
+            local spellInfo = C_Spell.GetSpellInfo(dungeon.spellID)
+            if spellInfo then
+                spellName = spellInfo.name or dungeon.name
+                spellIcon = spellInfo.iconID or spellIcon
+            end
+        end
+        
+        -- Create button for this dungeon (use SecureActionButton to avoid taint)
+        local btn
+        if hasSpell and dungeon.spellID > 0 then
+            -- Create secure button that can cast spells
+            -- Don't mix templates - just use SecureActionButtonTemplate
+            btn = CreateFrame("Button", nil, teleportFrame.scrollChild, "SecureActionButtonTemplate")
+            btn:RegisterForClicks("AnyUp", "AnyDown")
+            btn:SetAttribute("type", "spell")
+            btn:SetAttribute("spell", dungeon.spellID)
+        else
+            -- Regular button for unlearned spells
+            btn = CreateFrame("Button", nil, teleportFrame.scrollChild)
+        end
+        
+        btn:SetSize(buttonWidth, buttonHeight)
+        btn:SetPoint("TOPLEFT", 0, yOffset)
+        
+        -- Create backdrop manually using textures (not BackdropTemplate)
+        local bg = btn:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(btn)
+        bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+        btn.bg = bg
+        
+        -- Create border textures
+        local borderSize = 1
+        local borderColor = {0.3, 0.3, 0.3, 1}
+        
+        local borderTop = btn:CreateTexture(nil, "BORDER")
+        borderTop:SetColorTexture(unpack(borderColor))
+        borderTop:SetPoint("TOPLEFT")
+        borderTop:SetPoint("TOPRIGHT")
+        borderTop:SetHeight(borderSize)
+        
+        local borderBottom = btn:CreateTexture(nil, "BORDER")
+        borderBottom:SetColorTexture(unpack(borderColor))
+        borderBottom:SetPoint("BOTTOMLEFT")
+        borderBottom:SetPoint("BOTTOMRIGHT")
+        borderBottom:SetHeight(borderSize)
+        
+        local borderLeft = btn:CreateTexture(nil, "BORDER")
+        borderLeft:SetColorTexture(unpack(borderColor))
+        borderLeft:SetPoint("TOPLEFT")
+        borderLeft:SetPoint("BOTTOMLEFT")
+        borderLeft:SetWidth(borderSize)
+        
+        local borderRight = btn:CreateTexture(nil, "BORDER")
+        borderRight:SetColorTexture(unpack(borderColor))
+        borderRight:SetPoint("TOPRIGHT")
+        borderRight:SetPoint("BOTTOMRIGHT")
+        borderRight:SetWidth(borderSize)
+        
+        if hasSpell then
+            -- Learned spell - normal appearance
+            bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+        else
+            -- Unlearned spell - grayed out
+            bg:SetColorTexture(0.05, 0.05, 0.05, 0.6)
+            borderTop:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+            borderBottom:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+            borderLeft:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+            borderRight:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+        end
+        
+        -- Icon
+        local icon = btn:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(24, 24)
+        icon:SetPoint("LEFT", 3, 0)
+        icon:SetTexture(spellIcon)
+        
+        if not hasSpell then
+            icon:SetDesaturated(true)
+            icon:SetAlpha(0.5)
+        end
+        
+        -- Dungeon name text
+        local nameText = btn:CreateFontString(nil, "OVERLAY")
+        nameText:SetFont(fontPath, fontSize, "OUTLINE")
+        nameText:SetPoint("LEFT", icon, "RIGHT", 5, 0)
+        nameText:SetPoint("RIGHT", -5, 0)
+        nameText:SetJustifyH("LEFT")
+        nameText:SetText(dungeon.name)
+        btn.nameText = nameText  -- Store reference for later font updates
+        
+        if hasSpell then
+            -- Check if spell is on cooldown
+            local cooldownInfo = C_Spell.GetSpellCooldown(dungeon.spellID)
+            if cooldownInfo and cooldownInfo.startTime > 0 and cooldownInfo.duration > 0 then
+                -- Spell is on cooldown - show in RED
+                nameText:SetTextColor(1, 0, 0)
+            else
+                -- Spell is available - show in WHITE
+                nameText:SetTextColor(1, 1, 1)
+            end
+        else
+            nameText:SetTextColor(0.5, 0.5, 0.5)
+        end
+        
+        -- Button functionality
+        if hasSpell and dungeon.spellID > 0 then
+            btn:SetScript("OnEnter", function(self)
+                self.bg:SetColorTexture(0.2, 0.2, 0.3, 0.9)
+                
+                -- Update text color based on current cooldown status
+                local cooldownInfo = C_Spell.GetSpellCooldown(dungeon.spellID)
+                if cooldownInfo and cooldownInfo.startTime > 0 and cooldownInfo.duration > 0 then
+                    -- Spell is on cooldown - show in RED
+                    nameText:SetTextColor(1, 0, 0)
+                else
+                    -- Spell is available - show in WHITE
+                    nameText:SetTextColor(1, 1, 1)
+                end
+                
+                -- Show tooltip with spell info
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetSpellByID(dungeon.spellID)
+                GameTooltip:Show()
+            end)
+            
+            btn:SetScript("OnLeave", function(self)
+                self.bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+                GameTooltip:Hide()
+            end)
+            
+            -- Secure button handles the spell cast automatically
+            -- Add PostClick to hide the frame after casting
+            btn:SetScript("PostClick", function(self)
+                -- Hide the popup after casting
+                if teleportFrame then
+                    teleportFrame:Hide()
+                end
+            end)
+        else
+            -- Spell not learned - show tooltip explaining
+            btn:SetScript("OnEnter", function(self)
+                if dungeon.spellID == 0 then
+                    -- Placeholder spell ID
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine(dungeon.name, 1, 1, 1)
+                    GameTooltip:AddLine("Teleport spell not yet available", 0.8, 0.8, 0.8)
+                    GameTooltip:AddLine("(This is a new dungeon - spell ID pending)", 0.6, 0.6, 0.6)
+                    GameTooltip:Show()
+                else
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine(dungeon.name, 1, 1, 1)
+                    GameTooltip:AddLine("Teleport not learned", 0.8, 0.2, 0.2)
+                    GameTooltip:AddLine("Complete this dungeon on Mythic +10 difficulty to unlock", 0.7, 0.7, 0.7)
+                    GameTooltip:Show()
+                end
+            end)
+            
+            btn:SetScript("OnLeave", function(self)
+                GameTooltip:Hide()
+            end)
+            
+            btn:EnableMouse(true)
+            btn:SetScript("OnClick", nil)
+        end
+        
+        yOffset = yOffset - buttonSpacing
+    end
+end
+
+-- Register the broker
+teleportObj = LDB:NewDataObject("AbstractMPlusTeleports", {
+    type = "data source",
+    text = "M+ Ports",
+    icon = "Interface\\Icons\\Spell_Arcane_Portaldalaran", -- Portal icon
+    OnEnter = function(self)
+        -- Open the teleport menu on hover
+        if not teleportFrame then
+            CreateTeleportFrame()
+        end
+        
+        teleportFrame.owner = self
+        SmartAnchor(teleportFrame, self)
+        teleportFrame:Show()
+    end,
+    OnLeave = function()
+        -- Keep frame open if mouse moves into it, handled by frame's OnUpdate
+    end,
+    OnClick = function(self, button)
+        -- Optional: can still add click functionality if desired
+        -- For now, just keep the hover behavior
+    end,
+})
+
+-- Initialize on PLAYER_LOGIN to maintain secure context
+local initFrame = CreateFrame("Frame")
+initFrame:RegisterEvent("PLAYER_LOGIN")
+initFrame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_LOGIN" then
+        CreateTeleportFrame()
+        self:UnregisterAllEvents()
+    end
+end)
+
+-- Slash command to help find spell IDs
+SLASH_MPLUSTELEPORT1 = "/mptele"
+SLASH_MPLUSTELEPORT2 = "/mplusteleport"
+SlashCmdList["MPLUSTELEPORT"] = function(msg)
+    if msg == "list" or msg == "" then
+        print("|cff00ff00M+ Teleports - Spell ID Status:|r")
+        for i, dungeon in ipairs(DUNGEON_TELEPORTS) do
+            local status
+            if dungeon.spellID == 0 then
+                status = "|cffff0000Unknown|r"
+            elseif C_SpellBook.IsSpellInSpellBook(dungeon.spellID) then
+                status = "|cff00ff00Learned|r"
+            else
+                status = "|cffffff00Not Learned|r"
+            end
+            print(string.format("%d. %s - Spell ID: %d - %s", i, dungeon.name, dungeon.spellID, status))
+        end
+        print(" ")
+        print("|cff00ff00Commands:|r")
+        print("/mptele list - Show all dungeons and spell IDs")
+        print("/mptele check <spellID> - Check if you know a spell")
+        print(" ")
+        print("To find missing spell IDs:")
+        print("1. Cast the teleport spell from your spellbook")
+        print("2. Check combat log for the spell name")
+        print("3. Search spell name on Wowhead to get the ID")
+    elseif msg:match("^check%s+(%d+)") then
+        local spellID = tonumber(msg:match("^check%s+(%d+)"))
+        if spellID then
+            local spellInfo = C_Spell.GetSpellInfo(spellID)
+            if spellInfo then
+                local known = C_SpellBook.IsSpellInSpellBook(spellID)
+                print("|cff00ff00Spell ID " .. spellID .. ":|r")
+                print("  Name: " .. (spellInfo.name or "Unknown"))
+                print("  Known: " .. (known and "|cff00ff00Yes|r" or "|cffff0000No|r"))
+            else
+                print("|cffff0000Spell ID " .. spellID .. " not found|r")
+            end
+        end
+    else
+        print("|cffff0000Unknown command. Use /mptele list for help|r")
+    end
+end

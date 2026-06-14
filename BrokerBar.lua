@@ -1,0 +1,1845 @@
+
+local AbstractBar = LibStub("AceAddon-3.0"):GetAddon("AbstractBar")
+local BrokerBar = AbstractBar:NewModule("BrokerBar", "AceEvent-3.0")
+local LDB = LibStub("LibDataBroker-1.1")
+local LSM = LibStub("LibSharedMedia-3.0")
+-- Masque support removed
+
+-- No framework dependencies needed
+
+-- Make BrokerBar globally accessible for broker files
+_G.BrokerBar = BrokerBar
+
+-- Update all bar widgets' fonts when the global font changes
+function BrokerBar:UpdateAllFonts()
+    for barID, bar in pairs(bars) do
+        self:UpdateBarLayout(barID)
+    end
+end
+
+-- ============================================================================
+-- 1. LOCAL VARIABLES & DATA CACHES
+-- ============================================================================
+local bars = {}         
+local widgets = {}      
+-- Masque removed 
+
+-- Layout Cache
+local layoutCache = { 
+    LEFT = {}, 
+    CENTER = {}, 
+    RIGHT = {} 
+}
+
+-- Interactive Frame References
+local friendsFrame, guildFrame, volFrame
+local scrollChild, gScrollChild
+local guildMotD, listSeparator
+local friendTitle, friendFooter, guildTitle, guildFooter
+local headerRefs, guildHeaderRefs = {}, {}
+
+-- Module Object References
+local friendObj, guildObj, diffObj, clockObj, sysObj, goldObj, bagObj, duraObj, locObj, tokenObj, volObj, ilvlObj, crestsObj
+
+-- Data Cache
+local lastState = { 
+    timeH = -1, timeM = -1, fps = -1, ms = -1, 
+    bagFree = -1, bagTotal = -1, gold = -1, dura = -1, 
+    friends = -1, guild = -1, zone = nil, diffID = -1, 
+    diffPlayers = -1, vol = -1, token = -1, ilvl = -1
+}
+
+-- Combat state tracking
+local pendingLayoutUpdates = {}
+
+-- Re-entrancy protection for UpdateBarLayout
+local inUpdateBarLayout = {}
+
+-- Mappings
+local LABEL_MAP_FULL = { 
+    AbstractDiff = "Difficulty", AbstractVolume = "Volume", AbstractDura = "Durability", 
+    AbstractClock = "Clock", AbstractBags = "Bags", AbstractFriends = "Friends", 
+    AbstractGold = "Gold", AbstractGuild = "Guild", AbstractLocation = "Location", 
+    AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
+    AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
+    AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports"
+}
+
+local LABEL_MAP_SHORT = { 
+    AbstractDiff = "Diff", AbstractVolume = "Vol", AbstractDura = "Dura", 
+    AbstractClock = "Time", AbstractBags = "Bags", AbstractFriends = "Frnd", 
+    AbstractGold = "Gold", AbstractGuild = "Gld", AbstractLocation = "Loc", 
+    AbstractSystem = "Sys", AbstractToken = "Tok", AbstractILvl = "iLvL",
+    AbstractTimePlayed = "Played", AbstractCrests = "Crsts",
+    AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports"
+}
+
+local SHORTEN_REPLACEMENTS = {
+    ["Heroic"] = "H", ["Mythic"] = "M", ["Normal"] = "N", ["Finder"] = "LFR", 
+    ["Player"] = "P", ["Timewalking"] = "TW", ["Follower"] = "F", ["Tier"] = "T", 
+    ["Story"] = "S", ["Delve"] = "D", ["Keystone"] = "+", ["%("] = "", ["%)"] = "",
+}
+
+classTokenLookup = {}
+if _G.FillLocalizedClassList then
+    local temp = {}
+    FillLocalizedClassList(temp, false) 
+    for token, name in pairs(temp) do 
+        classTokenLookup[name] = token 
+    end
+    wipe(temp)
+    FillLocalizedClassList(temp, true) 
+    for token, name in pairs(temp) do 
+        classTokenLookup[name] = token 
+    end
+end
+
+-- SKINS DEFINITIONS
+local SKINS = {
+    ["Abstract"] = { 
+        backdrop = { 
+            bgFile = "Interface\\ChatFrame\\ChatFrameBackground", 
+            edgeFile = nil, 
+            tile = false, tileSize = 0, edgeSize = 0, 
+            insets = { left = 0, right = 0, top = 0, bottom = 0 } 
+        }, 
+        borderAlpha = 0 
+    },
+    ["Blizzard"] = { 
+        backdrop = { 
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", 
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", 
+            tile = true, tileSize = 16, edgeSize = 16, 
+            insets = { left = 4, right = 4, top = 4, bottom = 4 } 
+        }, 
+        borderAlpha = 1 
+    },
+    ["Glass"] = { 
+        backdrop = { 
+            bgFile = "Interface\\Buttons\\WHITE8X8", 
+            edgeFile = "Interface\\Buttons\\WHITE8X8", 
+            tile = false, tileSize = 0, edgeSize = 1, 
+            insets = { left = 1, right = 1, top = 1, bottom = 1 } 
+        }, 
+        borderAlpha = 0.4 
+    },
+    ["Flat"] = { 
+        backdrop = { 
+            bgFile = "Interface\\Buttons\\WHITE8X8", 
+            edgeFile = "Interface\\Buttons\\WHITE8X8", 
+            tile = false, tileSize = 0, edgeSize = 1, 
+            insets = { left = 0, right = 0, top = 0, bottom = 0 } 
+        }, 
+        borderAlpha = 1 
+    },
+    ["Transparent"] = { 
+        backdrop = { 
+            bgFile = nil, 
+            edgeFile = nil, 
+            tile = false, tileSize = 0, edgeSize = 0, 
+            insets = { left = 0, right = 0, top = 0, bottom = 0 } 
+        }, 
+        borderAlpha = 0 
+    },
+    ["Outline"] = { 
+        backdrop = { 
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", 
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", 
+            tile = true, tileSize = 16, edgeSize = 12, 
+            insets = { left = 3, right = 3, top = 3, bottom = 3 } 
+        }, 
+        borderAlpha = 1 
+    },
+    ["Tooltip"] = { 
+        backdrop = { 
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", 
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", 
+            tile = true, tileSize = 16, edgeSize = 16, 
+            insets = { left = 4, right = 4, top = 4, bottom = 4 } 
+        }, 
+        borderAlpha = 1 
+    }
+}
+
+-- ============================================================================
+-- 2. DATABASE DEFAULTS
+-- ============================================================================
+local defaults = {
+    profile = {
+        locked = false,
+        font = "Friz Quadrata TT",
+        fontSize = 12,
+        fontColor = {r = 1, g = 1, b = 1},
+        useClassColor = false,
+        useStandardTime = true,
+        spacing = 15,
+        goldSortBy = "name",
+        goldDeleteSelection = nil,
+        goldData = {},      
+        tokenHistory = {},
+        brokers = {}, -- Initialize empty brokers table
+        lastVolume = 1, -- PERSISTENT VOLUME STORAGE
+        barSkin = "Abstract", 
+        bars = { 
+            ["MainBar"] = { 
+                enabled = true, 
+                fullWidth = true, 
+                width = 600, 
+                height = 24, 
+                scale = 1.0,
+                alpha = 0.6,
+                useThemeColor = true,
+                color = {r = 0.1, g = 0.1, b = 0.1}, 
+                skin = "Transparent",    
+                padding = 10, 
+                point = "TOP", 
+                x = 0, y = 0,
+                font = "Expressway",
+            },
+        },
+    }
+}
+
+local function ShortenValue(text)
+    if not text or text == "" then 
+        return "" 
+    end
+    if tostring(text):find("|TInterface") then 
+        return text 
+    end
+    local short = tostring(text)
+    for k, v in pairs(SHORTEN_REPLACEMENTS) do 
+        short = short:gsub(k, v) 
+    end
+    if strlenutf8(short) > 60 then 
+        short = short:sub(1, 60) 
+    end
+    return short
+end
+
+-- Make helper functions global for broker files
+function GetColor()
+    -- FIX: Ensure DB is loaded if Helper is called early
+    if not BrokerBar.db then return 1, 1, 1 end
+    
+    local db = BrokerBar.db.profile
+    
+    -- Check useClassColor setting first
+    if db.useClassColor then
+        local _, class = UnitClass("player")
+        local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
+        return color.r, color.g, color.b
+    end
+    
+    -- Fallback to custom font color
+    return db.fontColor.r, db.fontColor.g, db.fontColor.b
+end
+
+function FormatTimeDisplay(h, m, standard)
+    if standard then
+        local suffix = (h >= 12) and " PM" or " AM"
+        local hour = h % 12
+        if hour == 0 then 
+            hour = 12 
+        end
+        return string.format("%d:%02d%s", hour, m, suffix)
+    else
+        return string.format("%02d:%02d", h, m)
+    end
+end
+
+function FormatSeconds(seconds)
+    if not seconds or seconds <= 0 then 
+        return "Now" 
+    end
+    local days = math.floor(seconds / 86400)
+    local hours = math.floor((seconds % 86400) / 3600)
+    local mins = math.floor((seconds % 3600) / 60)
+    if days > 0 then 
+        return string.format("%dd %dh %dm", days, hours, mins)
+    else 
+        return string.format("%dh %dm", hours, mins) 
+    end
+end
+
+-- Helper to format numbers with commas (e.g., 1,234,567)
+function FormatWithCommas(amount)
+    local formatted = tostring(amount)
+    while true do
+        formatted, k = formatted:gsub("^(%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+
+function FormatMoney(amount)
+    if not amount then 
+        return "0c" 
+    end
+    local gold = math.floor(amount / 10000)
+    local silver = math.floor((amount % 10000) / 100)
+    local copper = amount % 100
+    local str = ""
+    if gold > 0 then 
+        str = str .. string.format("%s|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t ", FormatWithCommas(gold)) 
+    end
+    if silver > 0 or gold > 0 then 
+        str = str .. string.format("%02d|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t ", silver) 
+    end
+    str = str .. string.format("%02d|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t ", copper)
+    return str
+end
+
+function FormatTokenPrice(amount)
+    if not amount then 
+        return "N/A" 
+    end
+    local gold = math.floor(amount / 10000)
+    return string.format("%s|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t", FormatWithCommas(gold))
+end
+
+function ApplyTooltipStyle(tip)
+    if not tip then return end
+    
+    -- Don't style tooltips with embedded content to avoid taint
+    if tip.ItemTooltip and tip.ItemTooltip:IsShown() then
+        return
+    end
+    
+    -- Hide default Blizzard tooltip borders
+    if tip.NineSlice then
+        tip.NineSlice:SetAlpha(0)
+    end
+    if tip.TopOverlay then
+        tip.TopOverlay:SetAlpha(0)
+    end
+    if tip.BottomOverlay then
+        tip.BottomOverlay:SetAlpha(0)
+    end
+    
+    -- Apply simple dark backdrop for tooltips
+    if tip.SetBackdrop then
+        tip:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = false,
+            tileSize = 0,
+            edgeSize = 2,
+            insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        })
+        -- Dark tooltip background
+        tip:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+        tip:SetBackdropBorderColor(0, 0, 0, 1)
+    end
+    
+    -- Use pcall to safely apply styling without causing taint
+    local success = pcall(function()
+        local db = BrokerBar.db.profile
+        local fontPath, fontSize, fontFlags
+        
+        -- Use user's Global Font setting
+        fontPath = LSM:Fetch("font", db.font) or "Fonts\\FRIZQT__.ttf"
+        fontSize = db.fontSize + 2  -- Slightly larger for tooltip header
+        fontFlags = "OUTLINE"
+        
+        local name = tip:GetName()
+        
+        if not name then return end
+        
+        if _G[name.."TextLeft1"] then
+            _G[name.."TextLeft1"]:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+        end
+        if _G[name.."TextRight1"] then
+            _G[name.."TextRight1"]:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+        end
+        
+        -- Use user's Global Font setting for body text
+        fontPath = LSM:Fetch("font", db.font) or "Fonts\\FRIZQT__.ttf"
+        fontSize = db.fontSize
+        fontFlags = "OUTLINE"
+        
+        local numLines = tip:NumLines()
+        if numLines then
+            for i = 2, numLines do
+                local l, r = _G[name.."TextLeft"..i], _G[name.."TextRight"..i]
+                if l then 
+                    l:SetFont(fontPath, fontSize, fontFlags or "OUTLINE") 
+                end
+                if r then 
+                    r:SetFont(fontPath, fontSize, fontFlags or "OUTLINE") 
+                end
+            end
+        end
+    end)
+    
+    -- Silently fail if styling causes issues (e.g., with embedded item tooltips)
+end
+
+function SmartAnchor(tooltip, owner)
+    tooltip:ClearAllPoints()
+    local bottom = owner:GetBottom()
+    local sH = GetScreenHeight()
+    
+    -- Vertical positioning (above or below based on screen position)
+    local vP, rP, yO
+    if bottom and bottom > sH/2 then
+        vP, rP, yO = "TOP", "BOTTOM", -2
+    else
+        vP, rP, yO = "BOTTOM", "TOP", 2
+    end
+    
+    -- Horizontal positioning based on broker's section alignment
+    -- This avoids taint from tooltip:GetWidth() calls
+    local align = owner.brokerAlign or "CENTER"
+    
+    if align == "LEFT" then
+        -- Broker on left side - tooltip expands to the right
+        tooltip:SetPoint(vP.."LEFT", owner, rP.."LEFT", 0, yO)
+    elseif align == "RIGHT" then
+        -- Broker on right side - tooltip expands to the left
+        tooltip:SetPoint(vP.."RIGHT", owner, rP.."RIGHT", 0, yO)
+    else
+        -- Center brokers - tooltip centers on button
+        tooltip:SetPoint(vP, owner, rP, 0, yO)
+    end
+end
+
+-- HELPER: DIFFICULTY STRING LOGIC
+function GetDifficultyLabel()
+    local _, instanceType, difficultyID, _, _, _, _, _, instanceGroupSize = GetInstanceInfo()
+    
+    if instanceType == "none" then return "World" end
+    if instanceType == "pvp" or instanceType == "arena" then return "BG" end
+    
+    -- Dungeons & Raids
+    -- Timewalking (24 = Dungeon, 33 = Raid)
+    if difficultyID == 24 or difficultyID == 33 then return "TW" end
+    
+    -- Legacy Raids
+    if difficultyID == 3 then return "N10" end
+    if difficultyID == 4 then return "N25" end
+    if difficultyID == 5 then return "H10" end
+    if difficultyID == 6 then return "H25" end
+    
+    -- Standard Dungeons
+    if difficultyID == 1 then return "N" end
+    if difficultyID == 2 then return "H" end
+    if difficultyID == 23 then return "M0" end
+    if difficultyID == 8 then return "M+" end
+    
+    -- Follower Dungeons (Check ID or Fallback Name)
+    if difficultyID == 205 then return "F" end
+    
+    -- Raids
+    if difficultyID == 7 or difficultyID == 17 then return "LFR" end
+    if difficultyID == 16 then return "M20" end -- Mythic Raid fixed
+    
+    -- Flex Raids (Normal 14, Heroic 15)
+    if difficultyID == 14 then 
+        local num = GetNumGroupMembers()
+        if num == 0 then num = 1 end 
+        return "N"..num
+    end
+    if difficultyID == 15 then 
+        local num = GetNumGroupMembers()
+        if num == 0 then num = 1 end
+        return "H"..num
+    end
+    
+    -- Fallback for Delves (Check Name)
+    local diffName = select(4, GetInstanceInfo())
+    if diffName then
+        if diffName:find("Delve") then return "D" end
+        if diffName:find("Follower") then return "F" end
+    end
+    
+    return diffName or ""
+end
+
+-- ============================================================================
+-- 4. INTERACTIVE FRAMES (Friends, Guild, Volume)
+-- ============================================================================
+-- NOTE: These functions have been moved to individual broker files in Modules/Brokers/
+-- The broker files now handle their own frame creation and update logic
+
+-- ============================================================================
+-- 5. BROKER OBJECTS (LDB)
+-- ============================================================================
+
+function BrokerBar:InitializeBrokers()
+    -- Brokers are now loaded from separate files in Modules/Brokers/
+    -- Get references to the data objects created by those files
+    friendObj = LDB:GetDataObjectByName("AbstractFriends")
+    guildObj = LDB:GetDataObjectByName("AbstractGuild")
+    goldObj = LDB:GetDataObjectByName("AbstractGold")
+    sysObj = LDB:GetDataObjectByName("AbstractSystem")
+    bagObj = LDB:GetDataObjectByName("AbstractBags")
+    tokenObj = LDB:GetDataObjectByName("AbstractToken")
+    volObj = LDB:GetDataObjectByName("AbstractVolume")
+    duraObj = LDB:GetDataObjectByName("AbstractDura")
+    locObj = LDB:GetDataObjectByName("AbstractLocation")
+    diffObj = LDB:GetDataObjectByName("AbstractDiff")
+    ilvlObj = LDB:GetDataObjectByName("AbstractILvl")
+    clockObj = LDB:GetDataObjectByName("AbstractClock")
+    crestsObj = LDB:GetDataObjectByName("AbstractCrests")
+end
+
+-- ============================================================================
+-- 6. UPDATE ENGINE
+-- ============================================================================
+
+function BrokerBar:UpdateAllModules()
+    -- CLOCK
+    local h, m = tonumber(date("%H")), tonumber(date("%M"))
+    if h ~= lastState.timeH or m ~= lastState.timeM then
+        lastState.timeH, lastState.timeM = h, m
+        clockObj.text = FormatTimeDisplay(h, m, self.db.profile.useStandardTime)
+    end
+
+    -- SYSTEM (FPS/MS) - Color Logic for Bar Text
+    -- Add tolerance to prevent updates on minor fluctuations (reduces string allocations)
+    local _, _, _, world = GetNetStats()
+    local fps = math.floor(GetFramerate())
+    local fpsChanged = not lastState.fps or math.abs(fps - lastState.fps) >= 2
+    local msChanged = not lastState.ms or math.abs(world - lastState.ms) >= 5
+    
+    if fpsChanged or msChanged then
+        lastState.fps, lastState.ms = fps, world
+        
+        -- Custom FPS Colors: Red < 20, Orange < 40, Yellow < 60, Green >= 60
+        local color = "ff33ff33" -- Green (Default)
+        if fps < 20 then color = "ffde1818"      -- Red
+        elseif fps < 40 then color = "ffff7d0a"  -- Orange
+        elseif fps < 60 then color = "ffffd200"  -- Yellow
+        end
+        
+        -- Custom MS Colors: Green < 100, Yellow < 200, Red >= 200
+        local msColor = "ff33ff33" -- Green (Default)
+        if world >= 200 then msColor = "ffde1818"     -- Red
+        elseif world >= 100 then msColor = "ffffd200" -- Yellow
+        end
+        
+        sysObj.text = string.format("FPS: |c%s%d|r MS: |c%s%d|r", color, fps, msColor, world)
+    end
+
+    -- Note: Bags count moved to UpdateBagCount() called by BAG_UPDATE event
+    -- Note: Gold display moved to UpdateGoldDisplay() called by PLAYER_MONEY event
+    -- Note: Token price moved to UpdateTokenDisplay() called by TOKEN_MARKET_PRICE_UPDATED event
+
+    -- Note: Counts (Guild, Friends, Durability) moved to event-driven update functions
+    -- Note: Location moved to UpdateLocation() called by ZONE_CHANGED event
+    
+    -- DIFFICULTY & FLEX
+    local diff = GetDifficultyLabel()
+    local num = GetNumGroupMembers()
+    if diff ~= lastState.diffID or num ~= lastState.diffPlayers then
+        lastState.diffID = diff
+        lastState.diffPlayers = num
+        diffObj.text = diff
+    end
+    
+    -- ITEM LEVEL
+    local avgIlvl, equippedIlvl = GetAverageItemLevel()
+    equippedIlvl = math.floor(equippedIlvl or 0)
+    if equippedIlvl ~= lastState.ilvl then
+        lastState.ilvl = equippedIlvl
+        ilvlObj.text = tostring(equippedIlvl)
+    end
+    
+    -- VOLUME - FIXED: Always Whole Number Formatting
+    local v = math.floor((tonumber(GetCVar("Sound_MasterVolume")) or 0) * 100)
+    if v ~= lastState.vol then 
+        lastState.vol = v
+        volObj.text = string.format("%d%%", v) -- Force integer display
+    end
+end
+
+-- Event-driven update functions to avoid expensive polling
+function BrokerBar:UpdateFriendsCount()
+    if not friendObj then return end
+    -- Count only online WoW Retail friends
+    local wowOnline = 0
+    local numBNet = BNGetNumFriends() or 0
+    for i = 1, numBNet do
+        local info = C_BattleNet.GetFriendAccountInfo(i)
+        if info and info.gameAccountInfo and info.gameAccountInfo.isOnline then
+            local g = info.gameAccountInfo
+            if (g.clientProgram == BNET_CLIENT_WOW) and (g.wowProjectID == 1) then
+                wowOnline = wowOnline + 1
+            end
+        end
+    end
+    -- Always update if not initialized, or if value changed
+    if not lastState.friends or wowOnline ~= lastState.friends then 
+        lastState.friends = wowOnline
+        friendObj.text = tostring(wowOnline) 
+    end
+end
+
+function BrokerBar:UpdateDurability()
+    if not duraObj then return end
+    local low = 100
+    for i = 1, 18 do 
+        local c, m = GetInventoryItemDurability(i)
+        if c and m then 
+            local p = (c/m)*100
+            if p < low then low = p end 
+        end 
+    end
+    low = math.floor(low)
+    -- Always update if not initialized, or if value changed
+    if not lastState.dura or low ~= lastState.dura then 
+        lastState.dura = low
+        duraObj.text = low.."%" 
+    end
+end
+
+function BrokerBar:UpdateGuildCount()
+    if not guildObj then return end
+    local _, online = GetNumGuildMembers()
+    -- Always update if not initialized, or if value changed
+    if not lastState.guild or online ~= lastState.guild then 
+        lastState.guild = online
+        guildObj.text = tostring(online or 0) 
+    end
+end
+
+function BrokerBar:UpdateBagCount()
+    if not bagObj then return end
+    local free, total = 0, 0
+    for i = 0, 5 do 
+        local s = C_Container.GetContainerNumSlots(i)
+        if s > 0 then 
+            free = free + C_Container.GetContainerNumFreeSlots(i)
+            total = total + s 
+        end 
+    end
+    -- Always update if not initialized, or if values changed
+    if not lastState.bagFree or free ~= lastState.bagFree or total ~= lastState.bagTotal then 
+        lastState.bagFree, lastState.bagTotal = free, total
+        bagObj.text = (total-free).."/"..total 
+    end
+end
+
+function BrokerBar:UpdateLocation()
+    if not locObj then return end
+    local config = self:GetSafeConfig("AbstractLocation")
+    local z = GetZoneText() or "Unknown"
+    local sz = GetSubZoneText() or ""
+    
+    -- Build the text based on config
+    local text = z
+    if config.showSubZone and sz ~= "" and sz ~= z then
+        text = z .. ": " .. sz
+    end
+    
+    -- Always update if lastState.zone is not set (initialization), or if zone/subzone changed
+    if not lastState.zone or text ~= lastState.zone then 
+        lastState.zone = text
+        locObj.text = text 
+    end
+end
+
+-- ============================================================================
+-- 7. FRAME & LAYOUT LOGIC
+-- ============================================================================
+
+local function SortByOrder(a, b) 
+    local db = BrokerBar.db.profile.brokers
+    if not db then return false end
+    return (db[a] and db[a].order or 0) < (db[b] and db[b].order or 0) 
+end
+
+function BrokerBar:GetSafeConfig(name)
+    -- Ensure brokers table exists
+    if not self.db.profile.brokers then
+        self.db.profile.brokers = {}
+    end
+    
+    if not self.db.profile.brokers[name] then
+        -- Default enabled brokers (only these are shown by default)
+        local defaultEnabledBrokers = {
+            ["AbstractVolume"] = true,
+            ["AbstractLocation"] = true,
+            ["AbstractGold"] = true,
+            ["AbstractDiff"] = true,
+            ["AbstractSystem"] = true,
+            ["AbstractClock"] = true,
+        }
+        
+        -- Default alignments for each broker
+        local defaultAlignments = {
+            ["AbstractVolume"] = "RIGHT",
+            ["AbstractLocation"] = "RIGHT",
+            ["AbstractDiff"] = "RIGHT",
+            ["AbstractSystem"] = "LEFT",
+            ["AbstractGold"] = "LEFT",
+            ["AbstractClock"] = "CENTER",
+        }
+        
+        -- Default order values for positioning (lower = leftmost in their alignment group)
+        local defaultOrders = {
+            ["AbstractSystem"] = 10,    -- LEFT side, first
+            ["AbstractGold"] = 20,      -- LEFT side, second
+            ["AbstractClock"] = 30,     -- CENTER
+            ["AbstractDiff"] = 60,      -- RIGHT side, first (leftmost)
+            ["AbstractLocation"] = 50,  -- RIGHT side, second
+            ["AbstractVolume"] = 40,    -- RIGHT side, third (rightmost)
+        }
+        
+        -- Check if this broker should be enabled by default
+        local defaultBar = defaultEnabledBrokers[name] and "MainBar" or "None"
+        local defaultAlign = defaultAlignments[name] or "CENTER"
+        local defaultOrder = defaultOrders[name] or 100
+        
+        -- Special case: Location should show coordinates by default
+        local defaultShowCoords = (name == "AbstractLocation")
+        local defaultShowSubZone = (name == "AbstractLocation") and false or nil
+        
+        -- Special case: Volume should default to 5% step size
+        local defaultVolumeStep = (name == "AbstractVolume") and 0.05 or nil
+        
+        self.db.profile.brokers[name] = { 
+            bar = defaultBar, 
+            align = defaultAlign, 
+            order = defaultOrder, 
+            showIcon = true, 
+            showText = true, 
+            showLabel = false, 
+            showCoords = defaultShowCoords,
+            showSubZone = defaultShowSubZone,
+            volumeStep = defaultVolumeStep
+        } 
+    end
+    return self.db.profile.brokers[name]
+end
+
+function BrokerBar:UpdateBarLayout(barID)
+    local bar = bars[barID]
+    local db = self.db.profile.bars[barID]
+    if not bar or not db then return end
+    
+    -- If in combat, defer layout update to avoid taint
+    if InCombatLockdown() then
+        pendingLayoutUpdates[barID] = true
+        return
+    end
+    
+    -- Ensure bar has proper size before positioning widgets
+    local barWidth, barHeight = bar:GetSize()
+    if barWidth == 0 or barHeight == 0 then
+        -- Bar hasn't been sized yet, apply settings first
+        self:ApplyBarSettings(barID)
+        return  -- ApplyBarSettings will call UpdateBarLayout again
+    end
+    
+    -- Prevent re-entrant calls that can cause duplicates in layoutCache
+    -- IMPORTANT: Must be AFTER early returns to avoid permanently locking the update
+    if inUpdateBarLayout[barID] then return end
+    inUpdateBarLayout[barID] = true
+    
+    wipe(layoutCache.LEFT)
+    wipe(layoutCache.CENTER)
+    wipe(layoutCache.RIGHT)
+    
+    local brokersForThisBar = {}
+    
+    for name, w in pairs(widgets) do
+        local config = self:GetSafeConfig(name)
+        if config and config.bar == barID then 
+            table.insert(layoutCache[config.align or "CENTER"], name)
+            table.insert(brokersForThisBar, name)
+            w:Show()
+        elseif config and config.bar == "None" then
+            -- Only hide widgets explicitly set to "None", don't hide widgets assigned to other bars
+            w:Hide() 
+        end
+    end
+    
+    -- Use user's Global Font setting
+    local fontPath = LSM:Fetch("font", self.db.profile.font) or "Fonts\\FRIZQT__.ttf"
+    local fontSize = self.db.profile.fontSize
+    local fontFlags = "OUTLINE"
+    local r, g, b = GetColor()
+    
+    for align, list in pairs(layoutCache) do
+        table.sort(list, SortByOrder)
+        local lastWidget = nil
+        local first = true
+        local totalW = 0
+        
+        -- Center Calculation
+        if align == "CENTER" then
+            for _, name in ipairs(list) do
+                local w = widgets[name]
+                local obj = LDB:GetDataObjectByName(name)
+                
+                -- FIXED TEXT CONSTRUCTION FOR WIDTH CALC
+                local bCfg = self:GetSafeConfig(name)
+                local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
+                local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
+                local rawText = tostring(obj.text or "")
+                
+                local textValue = rawText
+                if name ~= "AbstractLocation" and name ~= "AbstractCrests" and name ~= "AbstractDelves" then
+                    textValue = ShortenValue(rawText)
+                end
+                
+                if name == "AbstractLocation" and bCfg.showCoords then
+                    textValue = textValue .. " (00, 00)" -- Placeholder for sizing
+                end
+                
+                local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
+                
+                w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+                w.text:SetText(displayString)
+                
+                local iconSize = (db.height or 24) * 0.85
+                totalW = totalW + w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4) + self.db.profile.spacing
+            end
+            totalW = totalW - self.db.profile.spacing
+        end
+
+        for _, name in ipairs(list) do
+            local w, obj, bCfg = widgets[name], LDB:GetDataObjectByName(name), self:GetSafeConfig(name)
+            w:SetParent(bar)
+            w:SetFrameLevel(bar:GetFrameLevel() + 1)  -- Ensure widgets are above the bar's background
+            w:ClearAllPoints()
+            w.text:SetTextColor(r,g,b)
+            
+            local rawText = tostring(obj.text or "")
+            local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
+            local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
+            
+            local textValue = rawText
+            
+            -- LOCATION LOGIC (DECIMALS & TRUNCATION BYPASS)
+            if name == "AbstractLocation" then
+                if bCfg.showCoords then 
+                    local m = C_Map.GetBestMapForUnit("player")
+                    if m then 
+                        local p = C_Map.GetPlayerMapPosition(m, "player")
+                        if p then 
+                            local decimals = bCfg.coordDecimals or 0
+                            if decimals == 0 then
+                                textValue = textValue .. string.format(" (%d, %d)", p.x*100, p.y*100)
+                            elseif decimals == 1 then
+                                textValue = textValue .. string.format(" (%.1f, %.1f)", p.x*100, p.y*100)
+                            else -- 2 decimals
+                                textValue = textValue .. string.format(" (%.2f, %.2f)", p.x*100, p.y*100)
+                            end
+                        end 
+                    end 
+                end
+                -- No ShortenValue() call for location, showing full zone name
+            else
+                -- Skip ShortenValue for Crests and Delves to preserve formatting
+                if name ~= "AbstractCrests" and name ~= "AbstractDelves" then
+                    textValue = ShortenValue(rawText)
+                end
+            end
+            
+            local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
+            w.text:SetText(displayString)
+
+            -- FORCE GLOBAL FONT FOR ALL WIDGETS
+            w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+
+            local iconSize = (db.height or 24) * 0.85
+            if bCfg.showIcon and obj.icon then 
+                w.icon:SetTexture(obj.icon)
+                w.icon:SetSize(iconSize, iconSize)
+                w.icon:Show()
+                w.icon:SetPoint("LEFT", w, "LEFT", 2, 0)
+                w.text:SetPoint("LEFT", w.icon, "RIGHT", 4, 0) 
+            else 
+                w.icon:Hide()
+                w.text:SetPoint("LEFT", w, "LEFT", 2, 0) 
+            end
+            
+            local contentWidth = w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4)
+            w:SetSize(contentWidth, db.height)
+            
+            -- Store alignment on button for SmartAnchor to use
+            w.brokerAlign = align
+            
+            if align == "LEFT" then 
+                w:SetPoint("LEFT", lastWidget or bar, lastWidget and "RIGHT" or "LEFT", lastWidget and self.db.profile.spacing or 10, 0)
+            elseif align == "RIGHT" then 
+                w:SetPoint("RIGHT", lastWidget or bar, lastWidget and "LEFT" or "RIGHT", lastWidget and -self.db.profile.spacing or -10, 0)
+            else 
+                if first then 
+                    w:SetPoint("LEFT", bar, "CENTER", -(totalW/2), 0) 
+                else 
+                    w:SetPoint("LEFT", lastWidget, "RIGHT", self.db.profile.spacing, 0) 
+                end 
+            end
+            
+            lastWidget = w
+            first = false
+        end
+    end
+    
+    -- Clear re-entrancy flag
+    inUpdateBarLayout[barID] = nil
+end
+
+function BrokerBar:CreateBarFrame(id)
+    local f = CreateFrame("Frame", "AbstractBar_"..id, UIParent, "BackdropTemplate")
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f.bg = f:CreateTexture(nil, "BACKGROUND")
+    f.bg:SetAllPoints()
+    
+    -- Simple drag functionality
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function(self)
+        if not BrokerBar.db.profile.locked then
+            self:StartMoving()
+        end
+    end)
+    f:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, _, x, y = self:GetPoint()
+        local db = BrokerBar.db.profile.bars[id]
+        if db then
+            db.point = point or "CENTER"
+            db.x = x or 0
+            db.y = y or 0
+        end
+    end)
+    
+    bars[id] = f
+end
+
+function BrokerBar:ApplyBarSettings(barID)
+    local f, db = bars[barID], self.db.profile.bars[barID]
+    if not f or not db then return end
+    
+    local skin = SKINS[db.skin == "Global" and self.db.profile.barSkin or db.skin] or SKINS["Abstract"]
+    f:SetScale(db.scale or 1.0)
+    f:ClearAllPoints()
+    
+    if db.fullWidth then 
+        f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, db.y or 0)
+        f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, db.y or 0)
+    else 
+        f:SetSize(db.width or 400, db.height or 24)
+        f:SetPoint(db.point or "CENTER", UIParent, db.point or "CENTER", db.x or 0, db.y or 0)
+    end
+    
+    f:SetHeight(db.height or 24)
+    f.bg:SetTexture(LSM:Fetch("statusbar", db.texture or "Flat"))
+    
+    -- Use default dark color if useThemeColor is enabled, otherwise use saved color
+    local r, g, b, alpha
+    if db.useThemeColor then
+        -- Default dark theme color
+        r, g, b, alpha = 0.1, 0.1, 0.1, 0.8
+    else
+        -- Get color from db or use defaults
+        if type(db.color) == "table" and (db.color.r or db.color[1]) then
+            r = tonumber(db.color.r or db.color[1])
+            g = tonumber(db.color.g or db.color[2])
+            b = tonumber(db.color.b or db.color[3])
+        else
+            r, g, b = nil, nil, nil
+        end
+        alpha = db.alpha or 0.6
+    end
+    
+    -- Final validation: ensure all values are valid numbers
+    r = tonumber(r) or 0.1
+    g = tonumber(g) or 0.1
+    b = tonumber(b) or 0.1
+    alpha = tonumber(alpha) or 0.6
+    
+    f.bg:SetVertexColor(r, g, b, alpha)
+    
+    -- Set backdrop
+    if f.SetBackdrop then
+        f:SetBackdrop(skin.backdrop)
+        f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+        f:SetBackdropBorderColor(0.2, 0.4, 0.8, 0.8)
+    end
+    
+    if db.enabled then 
+        f:Show()
+    else 
+        f:Hide()
+    end
+    self:UpdateBarLayout(barID)
+end
+
+function BrokerBar:CreateWidget(name, obj)
+    local btn = widgets[name]
+    if not btn then
+        btn = CreateFrame("Button", nil, UIParent)
+        btn:RegisterForClicks("AnyUp") -- CRITICAL FIX: ENABLE RIGHT CLICK
+        btn.icon = btn:CreateTexture(nil, "ARTWORK")
+        btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        -- Masque support removed
+        widgets[name] = btn
+    end
+    btn:SetScript("OnEnter", function(self) 
+        if obj.OnEnter then 
+            obj.OnEnter(self) 
+        elseif obj.OnTooltipShow then 
+            GameTooltip:SetOwner(self, "ANCHOR_NONE")
+            SmartAnchor(GameTooltip, self)
+            obj.OnTooltipShow(GameTooltip)
+            -- FORCE STYLE FOR ALL TOOLTIPS
+            ApplyTooltipStyle(GameTooltip)
+            GameTooltip:Show() 
+        end 
+        -- Fallback check for addons that use weird tooltip methods
+        if GameTooltip:IsShown() and GameTooltip:GetOwner() == self then
+             ApplyTooltipStyle(GameTooltip)
+        end
+    end)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    btn:SetScript("OnClick", function(self, button) 
+        if name == "AbstractLocation" then 
+            ToggleWorldMap() 
+        elseif obj.OnClick then 
+            obj.OnClick(self, button) 
+        end 
+    end)
+    btn:EnableMouseWheel(true)
+    btn:SetScript("OnMouseWheel", function(self, delta) 
+        if obj.OnMouseWheel then 
+            obj.OnMouseWheel(obj, delta) 
+        end 
+    end)
+    LDB.RegisterCallback(self, "LibDataBroker_AttributeChanged_"..name, function() 
+        local config = BrokerBar:GetSafeConfig(name)
+        if config and config.bar and config.bar ~= "None" then
+            BrokerBar:UpdateBarLayout(config.bar)
+        end
+    end)
+end
+
+-- ============================================================================
+-- 8. INITIALIZATION & EVENTS
+-- ============================================================================
+
+function BrokerBar:OnInitialize()
+    self:RegisterMessage("AbstractBar_DB_READY", "OnDBReady")
+end
+
+function BrokerBar:OnDBReady()
+    if not AbstractBar.db.profile.modules.bar then return end
+    
+    -- Use "Bar" namespace for saved settings
+    self.db = AbstractBar.db:RegisterNamespace("Bar", defaults)
+    
+    -- Ensure MainBar has useThemeColor flag set (migration for existing profiles)
+    if self.db.profile.bars["MainBar"] and self.db.profile.bars["MainBar"].useThemeColor == nil then
+        self.db.profile.bars["MainBar"].useThemeColor = true
+    end
+
+    for id in pairs(self.db.profile.bars) do 
+        self:CreateBarFrame(id) 
+    end
+    
+    LDB.RegisterCallback(self, "LibDataBroker_DataObjectCreated", function(_, name, obj) 
+        self:CreateWidget(name, obj) 
+    end)
+    
+    self:InitializeBrokers()
+    
+    for name, obj in LDB:DataObjectIterator() do 
+        self:CreateWidget(name, obj) 
+    end
+    
+    -- REMOVED: self:RegisterEvent("PLAYER_LOGIN") - Not needed, no handler exists
+    self:RegisterEvent("PLAYER_MONEY", "UpdateGoldData")
+    self:RegisterEvent("TOKEN_MARKET_PRICE_UPDATED", "UpdateTokenDisplay")
+    self:RegisterEvent("GUILD_ROSTER_UPDATE", "UpdateGuildCount")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("BAG_UPDATE", "UpdateBagCount")
+    self:RegisterEvent("ZONE_CHANGED", "UpdateLocation")
+    self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "UpdateLocation")
+    self:RegisterEvent("ZONE_CHANGED_INDOORS", "UpdateLocation")
+    self:RegisterEvent("UPDATE_INVENTORY_DURABILITY", "UpdateDurability")
+    self:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE", "UpdateFriendsCount")
+    self:RegisterEvent("BN_FRIEND_ACCOUNT_OFFLINE", "UpdateFriendsCount")
+    self:RegisterEvent("BN_FRIEND_INFO_CHANGED", "UpdateFriendsCount")
+    self:RegisterEvent("FRIENDLIST_UPDATE", "UpdateFriendsCount")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED")  -- Entering combat
+    self:RegisterEvent("PLAYER_REGEN_ENABLED")   -- Leaving combat
+    
+    self:UpdateGoldData()
+    
+    -- Request initial WoW Token price
+    C_Timer.After(2, function()
+        C_WowTokenPublic.UpdateMarketPrice()
+    end)
+    
+    -- Cancel existing update ticker if it exists
+    if self.updateTicker then
+        self.updateTicker:Cancel()
+    end
+    self.updateTicker = C_Timer.NewTicker(1.0, function() self:UpdateAllModules() end)
+    
+    C_Timer.After(1.0, function() 
+        for id in pairs(bars) do 
+            BrokerBar:ApplyBarSettings(id) 
+        end 
+    end)
+end
+
+function BrokerBar:PLAYER_ENTERING_WORLD()
+    -- Initialize all modules with current values
+    self:UpdateAllModules()
+    
+    -- Update location immediately (zone changes need instant update)
+    self:UpdateLocation()
+    
+    -- Initialize other event-driven values with delay to ensure brokers are ready
+    C_Timer.After(0.1, function()
+        self:UpdateBagCount()
+        self:UpdateGoldDisplay()
+        self:UpdateTokenDisplay()
+        self:UpdateGuildCount()
+        self:UpdateFriendsCount()
+        self:UpdateDurability()
+    end)
+end
+
+function BrokerBar:PLAYER_REGEN_DISABLED()
+    -- Entering combat - layout updates will be deferred automatically
+end
+
+function BrokerBar:PLAYER_REGEN_ENABLED()
+    -- Leaving combat - process any pending layout updates
+    for barID in pairs(pendingLayoutUpdates) do
+        self:UpdateBarLayout(barID)
+    end
+    wipe(pendingLayoutUpdates)
+end
+
+function BrokerBar:UpdateGoldDisplay()
+    if not goldObj then return end
+    local money = GetMoney()
+    if money ~= lastState.gold then 
+        lastState.gold = money
+        goldObj.text = FormatMoney(money) 
+    end
+end
+
+function BrokerBar:UpdateTokenDisplay()
+    if not tokenObj then return end
+    local price = C_WowTokenPublic.GetCurrentMarketPrice()
+    if price and price ~= lastState.token then 
+        lastState.token = price
+        tokenObj.text = FormatTokenPrice(price) 
+    end
+    -- Also update token history when price changes
+    self:UpdateTokenHistory()
+end
+
+function BrokerBar:UpdateGoldData()
+    local key = UnitName("player") .. " - " .. GetRealmName()
+    self.db.profile.goldData[key] = { amount = GetMoney(), class = select(2, UnitClass("player")) }
+    -- Also update the display when money changes
+    self:UpdateGoldDisplay()
+end
+
+function BrokerBar:UpdateTokenHistory()
+    local price = C_WowTokenPublic.GetCurrentMarketPrice()
+    if not price then return end
+    
+    local h = self.db.profile.tokenHistory
+    
+    -- Check if this price is different from the most recent entry
+    if #h > 0 and h[1].price == price then
+        return -- Don't add duplicate prices
+    end
+    
+    -- Add new entry at the beginning
+    table.insert(h, 1, { price = price, time = time() })
+    
+    -- Keep only the 5 most recent entries
+    while #h > 5 do 
+        table.remove(h) 
+    end
+    
+    -- Update the display immediately
+    tokenObj.text = FormatTokenPrice(price)
+    self:UpdateBarLayout("MainBar")
+end
+
+function BrokerBar:GUILD_ROSTER_UPDATE() 
+    if guildFrame and guildFrame:IsShown() then 
+        self:UpdateGuildList() 
+    end
+    self:UpdateAllModules() 
+end
+
+-- ============================================================================
+-- 9. OPTIONS
+-- ============================================================================
+
+function BrokerBar:MoveBroker(name, direction)
+    local config = self:GetSafeConfig(name)
+    if not config or config.bar == "None" then 
+        return 
+    end
+    
+    -- Ensure brokers table exists
+    if not self.db.profile.brokers then
+        self.db.profile.brokers = {}
+    end
+    
+    -- For RIGHT-aligned brokers, reverse the direction since they're laid out right-to-left
+    -- (higher order values appear further left visually)
+    if config.align == "RIGHT" then
+        direction = -direction
+    end
+    
+    -- Build list of brokers in same bar/align
+    local list = {}
+    for n, c in pairs(self.db.profile.brokers) do 
+        if c.bar == config.bar and c.align == config.align then 
+            table.insert(list, {name=n, order=c.order or 10}) 
+        end 
+    end
+    table.sort(list, function(a, b) 
+        if a.order == b.order then
+            return a.name < b.name  -- Secondary sort by name for consistency
+        end
+        return a.order < b.order 
+    end)
+    
+    -- First, ensure all brokers have unique sequential order values
+    for i, d in ipairs(list) do
+        self.db.profile.brokers[d.name].order = i * 10
+        list[i].order = i * 10  -- Update the list entry too
+    end
+    
+    -- Find current index
+    local idx
+    for i, d in ipairs(list) do 
+        if d.name == name then idx = i end 
+    end
+    
+    if not idx then
+        return
+    end
+    
+    local target = idx + direction
+    
+    -- Check if move is valid
+    if target < 1 or target > #list then 
+        return
+    end
+    
+    -- Swap only the order values of these two brokers
+    local currentBrokerName = list[idx].name
+    local targetBrokerName = list[target].name
+    
+    self.db.profile.brokers[currentBrokerName].order, self.db.profile.brokers[targetBrokerName].order = 
+        self.db.profile.brokers[targetBrokerName].order, self.db.profile.brokers[currentBrokerName].order
+    
+    self:UpdateBarLayout(config.bar)
+end
+
+function BrokerBar:GetPluginOptions()
+    local options = { 
+        name = "Brokers", 
+        type = "group", 
+        childGroups = "tree",
+        order = 3,
+        args = {} 
+    }
+    
+    local barList = { ["None"] = "None" }; 
+    for bID in pairs(self.db.profile.bars) do 
+        barList[bID] = bID 
+    end
+    
+    local nameMap = { 
+        AbstractDura = "Abstract Durability", 
+        AbstractClock = "Abstract Clock", 
+        AbstractBags = "Abstract Bags", 
+        AbstractFriends = "Abstract Friends", 
+        AbstractGold = "Abstract Gold", 
+        AbstractGuild = "Abstract Guild", 
+        AbstractLocation = "Abstract Location", 
+        AbstractSystem = "Abstract System", 
+        AbstractDiff = "Abstract Difficulty", 
+        AbstractToken = "Abstract Token", 
+        AbstractVolume = "Abstract Volume", 
+        AbstractILvl = "Abstract Item Level",
+        AbstractTimePlayed = "Abstract Time Played",
+        AbstractCrests = "Abstract Crests",
+        AbstractCatalyst = "Abstract Catalyst",
+        AbstractDelves = "Abstract Delves",
+        AbstractMPlusTeleports = "Abstract M+ Teleports"
+    }
+
+    for name in pairs(widgets) do
+        self:GetSafeConfig(name)
+        local displayName = nameMap[name] or name
+        local isLoc = (name == "AbstractLocation")
+        local isVol = (name == "AbstractVolume")
+        local isGold = (name == "AbstractGold")
+        local isTimePlayed = (name == "AbstractTimePlayed")
+
+        options.args[name:gsub("%s", "_")] = {
+            name = (self.db.profile.brokers[name].bar ~= "None") and displayName or "|cff808080"..displayName.."|r", 
+            type = "group", 
+            order = 1,
+            args = {
+                enable = { 
+                    name = "Enable", 
+                    type = "toggle", 
+                    order = 1, 
+                    width = "normal", 
+                    get = function() return self.db.profile.brokers[name].bar ~= "None" end, 
+                    set = function(_, v) self.db.profile.brokers[name].bar = v and "MainBar" or "None"; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                },
+                moveL = { 
+                    name = "Move Left", 
+                    type = "execute", 
+                    order = 1.1, 
+                    width = "half", 
+                    func = function() self:MoveBroker(name, -1) end 
+                },
+                moveR = { 
+                    name = "Move Right", 
+                    type = "execute", 
+                    order = 1.2, 
+                    width = "half", 
+                    func = function() self:MoveBroker(name, 1) end 
+                },
+
+                -- Row 2: Bar and Align (now order 4 and 4.1)
+                bar = { 
+                    name = "Bar", 
+                    type = "select", 
+                    order = 4, 
+                    width = "half",
+                    values = barList, 
+                    get = function() return self.db.profile.brokers[name].bar end, 
+                    set = function(_, v) self.db.profile.brokers[name].bar = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                },
+                align = { 
+                    name = "Align", 
+                    type = "select", 
+                    order = 4.1, 
+                    width = "half",
+                    values = {LEFT="Left", CENTER="Center", RIGHT="Right"}, 
+                    get = function() return self.db.profile.brokers[name].align end, 
+                    set = function(_, v) self.db.profile.brokers[name].align = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                },
+
+                -- Row 3: Checkboxes and toggles (start at order 5)
+                showIcon = { 
+                    name = "Show Icon", 
+                    type = "toggle", 
+                    order = 5, 
+                    get = function() return self.db.profile.brokers[name].showIcon end, 
+                    set = function(_, v) self.db.profile.brokers[name].showIcon = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                },
+                showText = { 
+                    name = "Show Value", 
+                    type = "toggle", 
+                    order = 6, 
+                    get = function() return self.db.profile.brokers[name].showText end, 
+                    set = function(_, v) self.db.profile.brokers[name].showText = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                },
+                showLabel = { 
+                    name = "Show Label", 
+                    type = "toggle", 
+                    order = 7, 
+                    get = function() return self.db.profile.brokers[name].showLabel end, 
+                    set = function(_, v) self.db.profile.brokers[name].showLabel = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                },
+                useShortLabel = { 
+                    name = "Use Short Label", 
+                    type = "toggle", 
+                    order = 8, 
+                    disabled = function() return not self.db.profile.brokers[name].showLabel end, 
+                    get = function() return self.db.profile.brokers[name].useShortLabel end, 
+                    set = function(_, v) self.db.profile.brokers[name].useShortLabel = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                },
+                
+                showCoords = isLoc and { 
+                    name = "Show Coords", 
+                    type = "toggle", 
+                    order = 10, 
+                    get = function() return self.db.profile.brokers[name].showCoords end, 
+                    set = function(_, v) self.db.profile.brokers[name].showCoords = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                } or nil,
+                coordDecimals = isLoc and { 
+                    name = "Decimal Places", 
+                    type = "select", 
+                    order = 11, 
+                    values = { [0] = "None (60, 45)", [1] = "One (60.5, 45.3)", [2] = "Two (60.52, 45.37)" },
+                    get = function() return self.db.profile.brokers[name].coordDecimals or 0 end, 
+                    set = function(_, v) self.db.profile.brokers[name].coordDecimals = v; self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                } or nil,
+                showSubZone = isLoc and { 
+                    name = "Show SubZone", 
+                    desc = "Shows the local area or building name after the zone (e.g., 'Silvermoon City: Thalassian University')",
+                    type = "toggle", 
+                    order = 11.5, 
+                    get = function() return self.db.profile.brokers[name].showSubZone end, 
+                    set = function(_, v) self.db.profile.brokers[name].showSubZone = v; self:UpdateLocation(); self:UpdateBarLayout(self.db.profile.brokers[name].bar) end 
+                } or nil,
+                volumeStep = isVol and {
+                    name = "Step Size",
+                    type = "select",
+                    order = 12,
+                    values = { [0.01] = "1%", [0.05] = "5%" },
+                    get = function() return self.db.profile.brokers[name].volumeStep or 0.01 end,
+                    set = function(_, v) self.db.profile.brokers[name].volumeStep = v end
+                } or nil,
+                goldSort = isGold and {
+                    name = "Sort By",
+                    type = "select",
+                    order = 12,
+                    values = { ["name"] = "Name (A-Z)", ["amount"] = "Gold Amount (High to Low)" },
+                    get = function() return self.db.profile.goldSortBy or "name" end,
+                    set = function(_, v) self.db.profile.goldSortBy = v end
+                } or nil,
+                deleteCharHelp = isGold and {
+                    name = "Character Deletion",
+                    type = "description",
+                    order = 12.5,
+                    fontSize = "small",
+                    get = function() return "Use mouse wheel to scroll through character list in dropdown" end
+                } or nil,
+                deleteCharSelect = isGold and { 
+                    name = "Select Character to Delete", 
+                    type = "select",
+                    style = "dropdown",
+                    order = 13,
+                    width = "double",
+                    values = function() 
+                        -- Build sorted list by character name (before realm)
+                        local chars = {}
+                        for k in pairs(self.db.profile.goldData) do 
+                            local charName = k:match("^([^%-]+)") or k
+                            -- Trim whitespace
+                            charName = charName:gsub("^%s*(.-)%s*$", "%1")
+                            table.insert(chars, {key = k, sortName = charName})
+                        end
+                        
+                        -- Sort alphabetically by character name
+                        table.sort(chars, function(a, b)
+                            return a.sortName:lower() < b.sortName:lower()
+                        end)
+                        
+                        -- Build ordered table (AceGUI will preserve order)
+                        local t = {}
+                        for i, char in ipairs(chars) do
+                            t[char.key] = char.key
+                        end
+                        return t 
+                    end,
+                    sorting = function()
+                        -- Return sorted keys to maintain order
+                        local chars = {}
+                        for k in pairs(self.db.profile.goldData) do 
+                            local charName = k:match("^([^%-]+)") or k
+                            charName = charName:gsub("^%s*(.-)%s*$", "%1")
+                            table.insert(chars, {key = k, sortName = charName})
+                        end
+                        table.sort(chars, function(a, b)
+                            return a.sortName:lower() < b.sortName:lower()
+                        end)
+                        local sorted = {}
+                        for i, char in ipairs(chars) do
+                            table.insert(sorted, char.key)
+                        end
+                        return sorted
+                    end,
+                    get = function() return self.db.profile.goldDeleteSelection or "" end,
+                    set = function(_, v) self.db.profile.goldDeleteSelection = v end
+                } or nil,
+                deleteCharButton = isGold and {
+                    name = "Delete Character Data",
+                    type = "execute",
+                    order = 14,
+                    confirm = function() 
+                        local char = self.db.profile.goldDeleteSelection
+                        if not char or char == "" then
+                            return false
+                        end
+                        return true, "Delete gold data for " .. char .. "?"
+                    end,
+                    func = function()
+                        local char = self.db.profile.goldDeleteSelection
+                        if char and char ~= "" and self.db.profile.goldData[char] then
+                            self.db.profile.goldData[char] = nil
+                            self.db.profile.goldDeleteSelection = ""
+                            -- Options panel refresh removed for standalone
+                        end
+                    end,
+                    disabled = function() 
+                        local char = self.db.profile.goldDeleteSelection
+                        return not char or char == "" or not self.db.profile.goldData[char]
+                    end
+                } or nil,
+                -- Time Played character deletion
+                timePlayedDeleteHelp = isTimePlayed and {
+                    name = "Character Deletion",
+                    type = "description",
+                    order = 12.5,
+                    fontSize = "small",
+                    get = function() return "Use mouse wheel to scroll through character list in dropdown" end
+                } or nil,
+                timePlayedDeleteSelect = isTimePlayed and { 
+                    name = "Select Character to Delete", 
+                    type = "select",
+                    style = "dropdown",
+                    order = 13,
+                    width = "double",
+                    values = function() 
+                        -- Build sorted list by character name (before realm)
+                        local chars = {}
+                        for k in pairs(AccountPlayedDB or {}) do 
+                            local charName = k:match("^([^%-]+)") or k
+                            charName = charName:gsub("^%s*(.-)%s*$", "%1")
+                            table.insert(chars, {key = k, sortName = charName})
+                        end
+                        
+                        table.sort(chars, function(a, b)
+                            return a.sortName:lower() < b.sortName:lower()
+                        end)
+                        
+                        local t = {}
+                        for i, char in ipairs(chars) do
+                            t[char.key] = char.key
+                        end
+                        return t 
+                    end,
+                    sorting = function()
+                        local chars = {}
+                        for k in pairs(AccountPlayedDB or {}) do 
+                            local charName = k:match("^([^%-]+)") or k
+                            charName = charName:gsub("^%s*(.-)%s*$", "%1")
+                            table.insert(chars, {key = k, sortName = charName})
+                        end
+                        table.sort(chars, function(a, b)
+                            return a.sortName:lower() < b.sortName:lower()
+                        end)
+                        local sorted = {}
+                        for i, char in ipairs(chars) do
+                            table.insert(sorted, char.key)
+                        end
+                        return sorted
+                    end,
+                    get = function() return self.db.profile.timePlayedDeleteSelection or "" end,
+                    set = function(_, v) self.db.profile.timePlayedDeleteSelection = v end
+                } or nil,
+                timePlayedDeleteButton = isTimePlayed and {
+                    name = "Delete Character Data",
+                    type = "execute",
+                    order = 14,
+                    confirm = function() 
+                        local char = self.db.profile.timePlayedDeleteSelection
+                        if not char or char == "" then
+                            return false
+                        end
+                        return true, "Delete time played data for " .. char .. "?"
+                    end,
+                    func = function()
+                        local char = self.db.profile.timePlayedDeleteSelection
+                        if char and char ~= "" and AccountPlayedDB and AccountPlayedDB[char] then
+                            AccountPlayedDB[char] = nil
+                            self.db.profile.timePlayedDeleteSelection = ""
+                            -- Options panel refresh removed for standalone
+                        end
+                    end,
+                    disabled = function() 
+                        local char = self.db.profile.timePlayedDeleteSelection
+                        return not char or char == "" or not AccountPlayedDB or not AccountPlayedDB[char]
+                    end
+                } or nil
+            }
+        }
+    end
+    return options
+end
+
+function BrokerBar:GetOptions()
+    -- SAFETY CHECK: Ensure DB is loaded if GetOptions is called before OnInitialize
+    if not self.db then
+        -- Keep namespace as "Bar" for backwards compatibility with saved settings
+        self.db = AbstractBar.db:RegisterNamespace("Bar", defaults)
+    end
+
+    local function GetSkinList() 
+        local list = { ["Global"] = "Global (Use General Setting)" }
+        for k in pairs(SKINS) do list[k] = k end
+        return list 
+    end
+    
+    local screenWidth = math.floor(GetScreenWidth())
+    local options = { 
+        type = "group", 
+        name = "Data Brokers", 
+        childGroups = "tab", 
+        args = {
+            settings = {
+                name = "Settings",
+                type = "group",
+                order = 1,
+                args = {
+                    font = { 
+                        name = "Global Font", 
+                        type = "select", 
+                        order = 1, 
+                        values = function()
+                            local fonts = LSM:List("font")
+                            local out = {}
+                            for _, font in ipairs(fonts) do out[font] = font end
+                            return out
+                        end,
+                        get = function() return self.db.profile.font end, 
+                        set = function(_, v) self.db.profile.font = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                    },
+                    fontSize = { 
+                        name = "Font Size", 
+                        type = "range", 
+                        min = 6, 
+                        max = 32, 
+                        step = 1, 
+                        order = 2,
+                        width = "half",
+                        get = function() return self.db.profile.fontSize end, 
+                        set = function(_, v) self.db.profile.fontSize = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                    },
+                    spacing = { 
+                        name = "Spacing", 
+                        type = "range", 
+                        min = 0, 
+                        max = 50, 
+                        step = 1, 
+                        order = 3,
+                        width = "half",
+                        get = function() return self.db.profile.spacing end, 
+                        set = function(_, v) self.db.profile.spacing = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                    },
+                    useClassColor = { 
+                        name = "Use Class Color", 
+                        type = "toggle", 
+                        order = 4,
+                        get = function() return self.db.profile.useClassColor end, 
+                        set = function(_, v) self.db.profile.useClassColor = v; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                    },
+                    color = { 
+                        name = "Custom Font Color", 
+                        type = "color", 
+                        order = 5,
+                        disabled = function() return self.db.profile.useClassColor end, 
+                        get = function() local c = self.db.profile.fontColor; return c.r, c.g, c.b end, 
+                        set = function(_, r, g, b) self.db.profile.fontColor = {r=r, g=g, b=b}; for id in pairs(bars) do self:UpdateBarLayout(id) end end 
+                    },
+                    useStandardTime = { 
+                        name = "Use 24-Hour Time", 
+                        type = "toggle", 
+                        order = 6,
+                        get = function() return self.db.profile.useStandardTime end, 
+                        set = function(_, v) self.db.profile.useStandardTime = v; self:UpdateAllModules() end 
+                    },
+                    lock = { 
+                        name = "Lock", 
+                        type = "toggle", 
+                        order = 7,
+                        get = function() return self.db.profile.locked end, 
+                        set = function(_, v) self.db.profile.locked = v; for id in pairs(bars) do self:ApplyBarSettings(id) end end 
+                    },
+                }
+            },
+            bars = { 
+                name = "Bars", 
+                type = "group",
+                childGroups = "tab",
+                order = 2,
+                args = {} 
+            },
+            brokers = self:GetPluginOptions()
+        }
+    }
+    local sortedBars = {}; for id in pairs(self.db.profile.bars) do table.insert(sortedBars, id) end; table.sort(sortedBars)
+    
+    -- Add "Create New Bar" as first item in tree
+    options.args.bars.args["_create"] = {
+        name = "Create New Bar",
+        type = "group",
+        order = 1,
+        args = {
+            create = {
+                name = "Bar Name",
+                type = "input",
+                order = 1,
+                set = function(_, v) 
+                    if v ~= "" and not self.db.profile.bars[v] then 
+                        -- Use default dark color for new bars
+                        local r, g, b, a = 0.1, 0.1, 0.1, 0.6
+                        self.db.profile.bars[v] = { 
+                            enabled = true, 
+                            fullWidth = false, 
+                            width = 400, 
+                            height = 24, 
+                            scale = 1.0, 
+                            alpha = a or 0.6, 
+                            color = {r = r or 0.1, g = g or 0.1, b = b or 0.1},
+                            useThemeColor = true,
+                            skin = "Global", 
+                            padding = 5, 
+                            point = "CENTER", 
+                            x = 0, 
+                            y = 0 
+                        }
+                        self:CreateBarFrame(v)
+                        self:ApplyBarSettings(v)
+                        -- Refresh options to show new bar
+                        -- Options panel refresh removed for standalone
+                    end 
+                end 
+            }
+        }
+    }
+    
+    for i, id in ipairs(sortedBars) do
+        options.args.bars.args[id] = { 
+            name = id, 
+            type = "group", 
+            order = 2 + i, 
+            args = {
+                enabled = { 
+                    name = "Enabled", 
+                    type = "toggle", 
+                    order = 1,
+                    get = function() return self.db.profile.bars[id].enabled end, 
+                    set = function(_, v) self.db.profile.bars[id].enabled = v; self:ApplyBarSettings(id) end 
+                },
+                fullWidth = { 
+                    name = "Full Width", 
+                    type = "toggle", 
+                    order = 2,
+                    get = function() return self.db.profile.bars[id].fullWidth end, 
+                    set = function(_, v) self.db.profile.bars[id].fullWidth = v; self:ApplyBarSettings(id) end 
+                },
+                width = { 
+                    name = "Width", 
+                    type = "range", 
+                    order = 3, 
+                    min = 50, 
+                    max = screenWidth, 
+                    step = 1,
+                    width = "half",
+                    disabled = function() return self.db.profile.brokers[id] and self.db.profile.brokers[id].fullWidth or false end, 
+                    get = function() return self.db.profile.bars[id].width end, 
+                    set = function(_, v) self.db.profile.bars[id].width = v; self:ApplyBarSettings(id) end 
+                },
+                height = { 
+                    name = "Height", 
+                    type = "range", 
+                    order = 4, 
+                    min = 10, 
+                    max = 100, 
+                    step = 1,
+                    width = "half",
+                    get = function() return self.db.profile.bars[id].height end, 
+                    set = function(_, v) self.db.profile.bars[id].height = v; self:ApplyBarSettings(id) end 
+                },
+                scale = { 
+                    name = "Scale", 
+                    type = "range", 
+                    order = 4.5, 
+                    min = 0.5, 
+                    max = 3.0, 
+                    step = 0.1,
+                    width = "half",
+                    get = function() return self.db.profile.bars[id].scale or 1.0 end, 
+                    set = function(_, v) self.db.profile.bars[id].scale = v; self:ApplyBarSettings(id) end 
+                },
+                skin = { 
+                    name = "Skin", 
+                    type = "select", 
+                    order = 5,
+                    hidden = function() return self.db.profile.bars[id].useThemeColor end,
+                    values = GetSkinList, 
+                    get = function() return self.db.profile.bars[id].skin or "Global" end, 
+                    set = function(_, v) self.db.profile.bars[id].skin = v; self:ApplyBarSettings(id) end 
+                },
+                texture = { 
+                    name = "Texture", 
+                    type = "select", 
+                    order = 6,
+                    hidden = function() return self.db.profile.bars[id].useThemeColor end,
+                    values = function()
+                        local textures = LSM:List("statusbar")
+                        local out = {}
+                        for _, tex in ipairs(textures) do out[tex] = tex end
+                        return out
+                    end,
+                    get = function() return self.db.profile.bars[id].texture end, 
+                    set = function(_, v) self.db.profile.bars[id].texture = v; self:ApplyBarSettings(id) end 
+                },
+                useThemeColor = {
+                    name = "Use Theme Color",
+                    type = "toggle",
+                    order = 6.5,
+                    get = function() return self.db.profile.bars[id].useThemeColor end,
+                    set = function(_, v)
+                        self.db.profile.bars[id].useThemeColor = v
+                        if v then
+                            -- Set to Transparent skin and Solid texture when using theme color
+                            self.db.profile.bars[id].skin = "Transparent"
+                            self.db.profile.bars[id].texture = "Solid"
+                        end
+                        self:ApplyBarSettings(id)
+                    end
+                },
+                color = { 
+                    name = "Color", 
+                    type = "color", 
+                    hasAlpha = true, 
+                    order = 7,
+                    hidden = function() return self.db.profile.bars[id].useThemeColor end,
+                    get = function() local c = self.db.profile.bars[id].color; return c.r, c.g, c.b, self.db.profile.bars[id].alpha end, 
+                    set = function(_, r, g, b, a) 
+                        self.db.profile.bars[id].useThemeColor = false
+                        self.db.profile.bars[id].color = {r=r, g=g, b=b}
+                        self.db.profile.bars[id].alpha = a
+                        self:ApplyBarSettings(id) 
+                    end 
+                },
+                delete = {
+                    name = "Delete Bar",
+                    type = "execute",
+                    order = 99,
+                    confirm = function() return string.format("Are you sure you want to delete %s?", id) end,
+                    disabled = function() return id == "MainBar" end,
+                    func = function()
+                        self.db.profile.bars[id] = nil
+                        if bars[id] then bars[id]:Hide(); bars[id] = nil end
+                        if self.db.profile.brokers then
+                            for name, config in pairs(self.db.profile.brokers) do if config.bar == id then config.bar = "None" end end
+                        end
+                        print("|cff00ff00AbstractBar:|r Open configuration with /abar config")
+                    end
+                },
+        }}
+    end
+    return options
+end
+
+function BrokerBar:ScheduleLayout() 
+    BrokerBar.layoutQueued = true
+    C_Timer.After(0.05, function() 
+        BrokerBar.layoutQueued = false
+        for id in pairs(bars) do 
+            BrokerBar:UpdateBarLayout(id) 
+        end 
+    end) 
+end

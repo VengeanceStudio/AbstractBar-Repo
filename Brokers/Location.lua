@@ -1,0 +1,11 @@
+-- AbstractBar Location Broker
+-- Displays current zone name with coordinates and toggles world map on click
+
+local LDB = LibStub("LibDataBroker-1.1")
+local locObj
+
+-- Register the broker
+locObj = LDB:NewDataObject("AbstractLocation", { 
+    type = "data source", text = GetZoneText() or "Unknown", icon = "Interface\\Icons\\INV_Misc_Map02", 
+    OnClick = function() ToggleWorldMap() end 
+})
