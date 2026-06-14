@@ -1,6 +1,6 @@
 ## Interface: 120007, 120005
 ## Title: Abstract Bar
-## Version: 12.0.7.4
+## Version: 12.0.7.5
 ## Notes: Lightweight Data Broker display bar with integrated broker modules.
 ## Author: Vengeance
 ## X-Website: https://github.com/VengeanceStudio/AbstractBar
@@ -48,7 +48,10 @@ Brokers\ItemLevel.lua
 Brokers\Clock.lua
 Brokers\Crests.lua
 Brokers\Catalyst.lua
-Brokers\QuickActions.lua
+Brokers\Reload.lua
+Brokers\EditMode.lua
+Brokers\Logout.lua
+Brokers\Addons.lua
 Brokers\Delves.lua
 Brokers\MPlusTeleports.lua
 
