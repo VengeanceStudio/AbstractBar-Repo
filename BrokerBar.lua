@@ -912,6 +912,16 @@ function BrokerBar:CreateBarFrame(id)
         end
     end)
     
+    -- Right-click to open options
+    f:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            local AbstractBar = LibStub("AceAddon-3.0"):GetAddon("AbstractBar")
+            if AbstractBar and AbstractBar.OpenConfig then
+                AbstractBar:OpenConfig()
+            end
+        end
+    end)
+    
     bars[id] = f
 end
 
