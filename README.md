@@ -1,123 +1,206 @@
-# Abstract Bar
+# AbstractBar
 
-**Version:** 12.0.7.1  
-**Author:** Vengeance
+![WoW Version](https://img.shields.io/badge/WoW-12.0.7-blue.svg) ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
-## Description
+**AbstractBar** is a lightweight, standalone Data Broker display bar addon for World of Warcraft.  
+**Version:** 12.0.7.14 | **Author:** Vengeance
 
-AbstractBar is a lightweight, standalone Data Broker display bar addon for World of Warcraft. 
+Built for **WoW 12.0+** (Midnight expansion)
 
-## Features
+## ✨ Features
 
-- **Customizable Bar Display**: Create multiple bars with adjustable size, position, and appearance
-- **16 Built-in Broker Modules**:
-  - Clock (Local/Realm time with reset timers)
-  - Gold (Account-wide gold tracking)
-  - Guild (Online guild members)
-  - Friends (Online WoW friends)
-  - Bags (Inventory space)
-  - System (FPS/Latency with color coding)
-  - Token (WoW Token price tracking)
-  - Volume (Master volume control)
-  - Durability (Equipment durability)
-  - Location (Zone/coordinates)
-  - Difficulty (Instance difficulty)
-  - Item Level (Character iLvl)
-  - Crests (Dragonflight/TWW currency)
-  - Catalyst (Catalyst charges)
-  - Delves (Delve keys)
-  - M+ Teleports (Mythic+ keystone teleports)
+A powerful, fully customizable bar system for displaying critical game information at a glance.
 
-- **Flexible Configuration**:
-  - Show/hide individual brokers
-  - Adjust alignment (Left, Center, Right)
-  - Configure icon, text, and label display
-  - Reorder brokers with simple controls
-  - Multiple bar support
+### Core Features
 
-- **Theme Support**:
-  - Built-in themes: Abstract, Glass, Transparent
-  - Color palette system for consistent UI
-  - Font customization via SharedMedia
+*   **Support for unlimited custom bars** with independent positioning and styling
+*   **LibDataBroker-1.1 compatible** - works with any third-party data broker plugin
+*   **Per-bar configuration** - position, size, scale, transparency, fonts, textures, and colors
+*   **Three alignment sections** per bar: Left, Center, Right
+*   **Click-through mode** option for bars
+*   **Drag-and-drop positioning** for unlocked bars
+*   **Theme system** with built-in themes: Abstract, Glass, Transparent
+*   **Color palette system** for consistent UI appearance
+*   **Font customization** via LibSharedMedia-3.0
 
-- **Drag and Drop**: Simple click-and-drag positioning for unlocked bars
-- **Data Broker Compatible**: Works with any LibDataBroker-1.1 plugin
+### Built-in Data Brokers
 
-## Installation
+**17 integrated broker modules** provide comprehensive game information:
 
-1. Extract the AbstractBar folder to your `World of Warcraft/_retail_/Interface/AddOns/` directory
-2. Restart WoW or reload your UI
-3. Configure via `/abar` or `/abstractbar` commands
+| Broker | Description | Key Features |
+|--------|-------------|--------------|
+| **System** | FPS, Latency, Memory | Color-coded performance alerts (green/yellow/red), click for addon memory breakdown |
+| **Volume** | Master sound control | Click to mute/unmute, mousewheel to adjust volume, visual mute indicator |
+| **Gold** | Currency tracking | Total gold across all characters, click for per-character breakdown, realm totals |
+| **Clock** | Time & reset timers | 12/24hr format toggle, daily/weekly reset countdowns, server/local time display |
+| **Bags** | Inventory space | Free/total slots displayed, bag type indicators, color-coded capacity warnings |
+| **Durability** | Equipment condition | Percentage display, low durability alerts, click to open repair window |
+| **Friends** | Social management | Online friend count, expandable roster with class colors and zone information |
+| **Guild** | Guild roster | Online member count, expandable roster with ranks, notes, and class colors |
+| **Location** | Zone information | Current zone name with coordinates (X, Y), subzone display, level info |
+| **Difficulty** | Instance settings | Current difficulty mode display, click to change dungeon/raid difficulty |
+| **Token** | WoW Token prices | Current auction house token price with trend indicators |
+| **Item Level** | Character stats | Average equipped item level display |
+| **Crests** | Seasonal currency | Dawncrest tracking (Adventurer/Veteran/Champion/Hero/Myth) with color-coded display |
+| **Catalyst** | Upgrade charges | Dawnlight Manaflux charge tracking for Midnight Season 1 catalyst upgrades |
+| **Delves** | Companion XP | Valeera Sanguinar level and XP tracking, hourly XP gain statistics |
+| **M+ Teleports** | Dungeon access | Quick teleport menu for Midnight Season 1 Mythic+ dungeons (8 dungeons) |
+| **Quick Actions** | Utility buttons | Four-button widget: **R** (Reload UI), **E** (Edit Mode), **L** (Logout), **A** (Addon List) |
 
-## Commands
+### Interactive Features
 
-- `/abar` - Open configuration panel
-- `/abar config` - Open configuration panel
-- `/abstractbar` - Open configuration panel
+*   **Expandable rosters** - detailed friend and guild lists with status information
+*   **Class coloring** - character names displayed in class colors
+*   **Zone coordinates** - precise X, Y location tracking
+*   **Memory breakdown** - per-addon memory usage statistics
+*   **Reset timers** - countdown displays for daily and weekly resets
+*   **Mythic+ teleports** - instant access to Season 1 dungeon entrances
+*   **Volume control** - mousewheel adjustments from any broker module
+*   **Tooltip styling** - consistent themed tooltips across all brokers
 
-## Dependencies
+---
 
-- **Required Libraries** (Included):
-  - LibStub
-  - LibDataBroker-1.1
-  - LibSharedMedia-3.0
-  - Ace3 (AceAddon-3.0, AceEvent-3.0, AceDB-3.0)
+## 📦 Dependencies
 
-## Configuration
+AbstractBar includes the following libraries in the `libs/` folder:
 
-The addon includes a full configuration panel accessible via:
-- Slash commands: `/abar` or `/abar config`
-- Blizzard's AddOns menu: ESC > AddOns > Abstract Bar
+*   **LibStub** - Library management
+*   **CallbackHandler-1.0** - Event handling system
+*   **LibDataBroker-1.1** - Data broker integration framework
+*   **LibSharedMedia-3.0** - Font, texture, and statusbar library
+*   **Ace3 Framework:**
+    *   AceAddon-3.0 - Addon framework
+    *   AceConsole-3.0 - Slash command handling
+    *   AceEvent-3.0 - Event registration
+    *   AceDB-3.0 - Saved variables database
+    *   AceGUI-3.0 - GUI widget library
+    *   AceConfig-3.0 - Configuration system
 
-### Configuration Options:
+All dependencies are included - **no additional downloads required**.
+
+---
+
+## 🚀 Installation
+
+### Via CurseForge or WoWUp
+
+1.  Search for "**AbstractBar**" in your addon manager
+2.  Click "Install"
+3.  Launch World of Warcraft
+
+### Manual Installation
+
+1.  Download the latest release
+2.  Extract the **AbstractBar** folder from the `.zip` archive
+3.  Copy the **AbstractBar** folder to:  
+    `World of Warcraft\_retail_\Interface\AddOns\`
+4.  Launch World of Warcraft
+5.  Type `/abar` to open the configuration panel
+
+**Note:** On Linux, use a Windows-compatible extraction tool to preserve file structure.
+
+---
+
+## ⚙️ Configuration
+
+Access the full configuration panel via:
+
+*   **Slash commands:** `/abar` or `/abstractbar`
+*   **Blizzard AddOns menu:** ESC → Interface → AddOns → Abstract Bar
+
+### Configuration Tabs
 
 **Settings Tab:**
-- Global Font selection
-- Font Size (6-32)
-- Broker Spacing (0-50)
-- Use Class Color toggle
-- Custom Font Color picker
-- 24-Hour Time format toggle
-- Lock/Unlock bars
+*   Global font selection
+*   Font size adjustment (6-32)
+*   Broker spacing (0-50 pixels)
+*   Use class color toggle
+*   Custom font color picker
+*   24-hour time format option
+*   Lock/unlock bars
 
 **Bars Tab:**
-- Create new bars
-- Enable/disable bars
-- Full width toggle
-- Width and height sliders
-- Scale adjustment
-- Bar skin selection
-- Color customization
-- Position settings
+*   Create unlimited custom bars
+*   Enable/disable individual bars
+*   Full width toggle
+*   Width and height sliders
+*   Scale adjustment (50%-200%)
+*   Bar skin/texture selection
+*   Background color customization
+*   Precise position settings
 
 **Brokers Tab:**
-- Enable/disable individual brokers
-- Move brokers left/right
-- Choose which bar to display on
-- Alignment (Left, Center, Right)
-- Show/hide icon, text, label
-- Broker-specific settings (coordinates, volume steps, etc.)
+*   Enable/disable individual brokers
+*   Reorder brokers (move left/right)
+*   Assign brokers to specific bars
+*   Set alignment (Left, Center, Right)
+*   Toggle icon, text, and label visibility
+*   Broker-specific settings:
+    *   Coordinate display format
+    *   Volume adjustment steps
+    *   Time format preferences
+    *   Display thresholds
 
-## Notes
+---
 
-- This addon is fully standalone
-- All broker modules work independently
-- Settings are saved in `AbstractBarDB` savedvariables
+## 💻 Commands
 
-## Known Issues
+*   `/abar` - Open configuration panel
+*   `/abar config` - Open configuration panel
+*   `/abstractbar` - Open configuration panel
 
-- None reported yet!
+---
 
-## Credits
+## 🎮 WoW 12.0+ API Compatibility
 
-- Uses Ace3 library framework
-- LibDataBroker standard for broker compatibility
+AbstractBar is built for the **Midnight expansion (12.0+)** and uses the latest WoW APIs:
 
-## License
+*   **C_DelvesUI** - Companion tracking system
+*   **C_CurrencyInfo** - Currency and crest data
+*   **C_GossipInfo** - Friendship reputation tracking
+*   **Settings API** - Modern Blizzard settings integration
+*   Updated **Interface version: 120007, 120005**
 
-All Rights Reserved
+Fully compatible with Midnight Season 1 content including Mythic+ dungeons, Dawncrest upgrades, and Dawnlight Manaflux catalyst charges.
 
-## Support
+---
 
-For issues, suggestions, or contributions:
-- GitHub: https://github.com/VengeanceStudio/AbstractBar
+## 🤝 Contributing
+
+Contributions are welcome! To contribute:
+
+*   **Report a bug** - Open an issue with reproduction steps
+*   **Suggest a feature** - Describe your proposed enhancement
+*   **Submit code** - Fork the repository and create a pull request
+
+Please ensure code follows the existing style and includes appropriate comments.
+
+---
+
+## 📝 License
+
+This project is licensed under the **GNU General Public License v3.0**.  
+See the [LICENSE.txt](LICENSE.txt) file for complete details.
+
+---
+
+## 🙏 Credits
+
+*   **Author:** Vengeance
+*   **Libraries:** Ace3, LibSharedMedia-3.0, LibDataBroker-1.1, CallbackHandler-1.0, LibStub
+*   **Community:** Special thanks to all users providing feedback, bug reports, and feature suggestions
+
+---
+
+## 📞 Support
+
+For support, questions, or feature requests:
+
+*   Type `/abar` in-game to access configuration
+*   Review broker tooltips for detailed feature descriptions
+*   Check module-specific settings in the Brokers tab
+*   Submit issues on the project repository
+
+---
+
+*AbstractBar - A cleaner, modern interface for World of Warcraft: Midnight and beyond.*
