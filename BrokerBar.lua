@@ -63,7 +63,7 @@ local LABEL_MAP_FULL = {
     AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
     AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
     AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports",
-    AbstractReload = "Reload", AbstractEditMode = "Edit Mode", AbstractLogout = "Logout", AbstractAddons = "Addons"
+    AbstractActions = "Actions"
 }
 
 local LABEL_MAP_SHORT = { 
@@ -73,7 +73,7 @@ local LABEL_MAP_SHORT = {
     AbstractSystem = "Sys", AbstractToken = "Tok", AbstractILvl = "iLvL",
     AbstractTimePlayed = "Played", AbstractCrests = "Crsts",
     AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports",
-    AbstractReload = "R", AbstractEditMode = "E", AbstractLogout = "L", AbstractAddons = "A"
+    AbstractActions = "R E L A"
 }
 
 local SHORTEN_REPLACEMENTS = {
@@ -776,28 +776,33 @@ function BrokerBar:UpdateBarLayout(barID)
                 local w = widgets[name]
                 local obj = LDB:GetDataObjectByName(name)
                 
-                -- FIXED TEXT CONSTRUCTION FOR WIDTH CALC
-                local bCfg = self:GetSafeConfig(name)
-                local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
-                local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
-                local rawText = tostring(obj.text or "")
-                
-                local textValue = rawText
-                if name ~= "AbstractLocation" and name ~= "AbstractCrests" and name ~= "AbstractDelves" then
-                    textValue = ShortenValue(rawText)
+                -- Special width for Actions broker
+                if name == "AbstractActions" then
+                    totalW = totalW + 130 + self.db.profile.spacing
+                else
+                    -- FIXED TEXT CONSTRUCTION FOR WIDTH CALC
+                    local bCfg = self:GetSafeConfig(name)
+                    local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
+                    local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
+                    local rawText = tostring(obj.text or "")
+                    
+                    local textValue = rawText
+                    if name ~= "AbstractLocation" and name ~= "AbstractCrests" and name ~= "AbstractDelves" then
+                        textValue = ShortenValue(rawText)
+                    end
+                    
+                    if name == "AbstractLocation" and bCfg.showCoords then
+                        textValue = textValue .. " (00, 00)" -- Placeholder for sizing
+                    end
+                    
+                    local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
+                    
+                    w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+                    w.text:SetText(displayString)
+                    
+                    local iconSize = (db.height or 24) * 0.85
+                    totalW = totalW + w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4) + self.db.profile.spacing
                 end
-                
-                if name == "AbstractLocation" and bCfg.showCoords then
-                    textValue = textValue .. " (00, 00)" -- Placeholder for sizing
-                end
-                
-                local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
-                
-                w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
-                w.text:SetText(displayString)
-                
-                local iconSize = (db.height or 24) * 0.85
-                totalW = totalW + w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4) + self.db.profile.spacing
             end
             totalW = totalW - self.db.profile.spacing
         end
@@ -807,78 +812,106 @@ function BrokerBar:UpdateBarLayout(barID)
             w:SetParent(bar)
             w:SetFrameLevel(bar:GetFrameLevel() + 1)  -- Ensure widgets are above the bar's background
             w:ClearAllPoints()
-            w.text:SetTextColor(r,g,b)
             
-            local rawText = tostring(obj.text or "")
-            local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
-            local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
-            
-            local textValue = rawText
-            
-            -- LOCATION LOGIC (DECIMALS & TRUNCATION BYPASS)
-            if name == "AbstractLocation" then
-                if bCfg.showCoords then 
-                    local m = C_Map.GetBestMapForUnit("player")
-                    if m then 
-                        local p = C_Map.GetPlayerMapPosition(m, "player")
-                        if p then 
-                            local decimals = bCfg.coordDecimals or 0
-                            if decimals == 0 then
-                                textValue = textValue .. string.format(" (%d, %d)", p.x*100, p.y*100)
-                            elseif decimals == 1 then
-                                textValue = textValue .. string.format(" (%.1f, %.1f)", p.x*100, p.y*100)
-                            else -- 2 decimals
-                                textValue = textValue .. string.format(" (%.2f, %.2f)", p.x*100, p.y*100)
-                            end
-                        end 
+            -- Special handling for Actions broker
+            if name == "AbstractActions" then
+                w:SetSize(130, db.height)
+                -- Update button fonts to match theme
+                for _, ab in ipairs(w.actionButtons or {}) do
+                    ab:SetHeight(db.height - 4)
+                    ab.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+                    ab.text:SetTextColor(r, g, b)
+                end
+                -- Position the widget
+                w.brokerAlign = align
+                if align == "LEFT" then 
+                    w:SetPoint("LEFT", lastWidget or bar, lastWidget and "RIGHT" or "LEFT", lastWidget and self.db.profile.spacing or 10, 0)
+                elseif align == "RIGHT" then 
+                    w:SetPoint("RIGHT", lastWidget or bar, lastWidget and "LEFT" or "RIGHT", lastWidget and -self.db.profile.spacing or -10, 0)
+                else 
+                    if first then 
+                        w:SetPoint("LEFT", bar, "CENTER", -(totalW/2), 0) 
+                    else 
+                        w:SetPoint("LEFT", lastWidget, "RIGHT", self.db.profile.spacing, 0) 
                     end 
                 end
-                -- No ShortenValue() call for location, showing full zone name
+                lastWidget = w
+                first = false
             else
-                -- Skip ShortenValue for Crests and Delves to preserve formatting
-                if name ~= "AbstractCrests" and name ~= "AbstractDelves" then
-                    textValue = ShortenValue(rawText)
+                -- Normal broker handling
+                w.text:SetTextColor(r,g,b)
+                
+                local rawText = tostring(obj.text or "")
+                local map = bCfg.useShortLabel and LABEL_MAP_SHORT or LABEL_MAP_FULL
+                local labelPart = bCfg.showLabel and (map[name] or obj.label or name) or ""
+                
+                local textValue = rawText
+                
+                -- LOCATION LOGIC (DECIMALS & TRUNCATION BYPASS)
+                if name == "AbstractLocation" then
+                    if bCfg.showCoords then 
+                        local m = C_Map.GetBestMapForUnit("player")
+                        if m then 
+                            local p = C_Map.GetPlayerMapPosition(m, "player")
+                            if p then 
+                                local decimals = bCfg.coordDecimals or 0
+                                if decimals == 0 then
+                                    textValue = textValue .. string.format(" (%d, %d)", p.x*100, p.y*100)
+                                elseif decimals == 1 then
+                                    textValue = textValue .. string.format(" (%.1f, %.1f)", p.x*100, p.y*100)
+                                else -- 2 decimals
+                                    textValue = textValue .. string.format(" (%.2f, %.2f)", p.x*100, p.y*100)
+                                end
+                            end 
+                        end 
+                    end
+                    -- No ShortenValue() call for location, showing full zone name
+                else
+                    -- Skip ShortenValue for Crests and Delves to preserve formatting
+                    if name ~= "AbstractCrests" and name ~= "AbstractDelves" then
+                        textValue = ShortenValue(rawText)
+                    end
                 end
-            end
-            
-            local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
-            w.text:SetText(displayString)
+                
+                local displayString = (labelPart ~= "" and labelPart .. ": " or "") .. (bCfg.showText and textValue or "")
+                w.text:SetText(displayString)
 
-            -- FORCE GLOBAL FONT FOR ALL WIDGETS
-            w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
+                -- FORCE GLOBAL FONT FOR ALL WIDGETS
+                w.text:SetFont(fontPath, fontSize, fontFlags or "OUTLINE")
 
-            local iconSize = (db.height or 24) * 0.85
-            if bCfg.showIcon and obj.icon then 
-                w.icon:SetTexture(obj.icon)
-                w.icon:SetSize(iconSize, iconSize)
-                w.icon:Show()
-                w.icon:SetPoint("LEFT", w, "LEFT", 2, 0)
-                w.text:SetPoint("LEFT", w.icon, "RIGHT", 4, 0) 
-            else 
-                w.icon:Hide()
-                w.text:SetPoint("LEFT", w, "LEFT", 2, 0) 
-            end
-            
-            local contentWidth = w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4)
-            w:SetSize(contentWidth, db.height)
-            
-            -- Store alignment on button for SmartAnchor to use
-            w.brokerAlign = align
-            
-            if align == "LEFT" then 
-                w:SetPoint("LEFT", lastWidget or bar, lastWidget and "RIGHT" or "LEFT", lastWidget and self.db.profile.spacing or 10, 0)
-            elseif align == "RIGHT" then 
-                w:SetPoint("RIGHT", lastWidget or bar, lastWidget and "LEFT" or "RIGHT", lastWidget and -self.db.profile.spacing or -10, 0)
-            else 
-                if first then 
-                    w:SetPoint("LEFT", bar, "CENTER", -(totalW/2), 0) 
+                local iconSize = (db.height or 24) * 0.85
+                if bCfg.showIcon and obj.icon then 
+                    w.icon:SetTexture(obj.icon)
+                    w.icon:SetSize(iconSize, iconSize)
+                    w.icon:Show()
+                    w.icon:SetPoint("LEFT", w, "LEFT", 2, 0)
+                    w.text:SetPoint("LEFT", w.icon, "RIGHT", 4, 0) 
                 else 
-                    w:SetPoint("LEFT", lastWidget, "RIGHT", self.db.profile.spacing, 0) 
-                end 
+                    w.icon:Hide()
+                    w.text:SetPoint("LEFT", w, "LEFT", 2, 0) 
+                end
+                
+                local contentWidth = w.text:GetStringWidth() + (bCfg.showIcon and (iconSize + 4) or 4)
+                w:SetSize(contentWidth, db.height)
+                
+                -- Store alignment on button for SmartAnchor to use
+                w.brokerAlign = align
+                
+                if align == "LEFT" then 
+                    w:SetPoint("LEFT", lastWidget or bar, lastWidget and "RIGHT" or "LEFT", lastWidget and self.db.profile.spacing or 10, 0)
+                elseif align == "RIGHT" then 
+                    w:SetPoint("RIGHT", lastWidget or bar, lastWidget and "LEFT" or "RIGHT", lastWidget and -self.db.profile.spacing or -10, 0)
+                else 
+                    if first then 
+                        w:SetPoint("LEFT", bar, "CENTER", -(totalW/2), 0) 
+                    else 
+                        w:SetPoint("LEFT", lastWidget, "RIGHT", self.db.profile.spacing, 0) 
+                    end 
+                end
+                
+                lastWidget = w
+                first = false
             end
-            
-            lastWidget = w
-            first = false
         end
     end
     
@@ -987,12 +1020,82 @@ end
 function BrokerBar:CreateWidget(name, obj)
     local btn = widgets[name]
     if not btn then
-        btn = CreateFrame("Button", nil, UIParent)
-        btn:RegisterForClicks("AnyUp") -- CRITICAL FIX: ENABLE RIGHT CLICK
-        btn.icon = btn:CreateTexture(nil, "ARTWORK")
-        btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        -- Masque support removed
-        widgets[name] = btn
+        -- Special handling for Actions broker - create custom multi-button widget
+        if name == "AbstractActions" then
+            btn = CreateFrame("Frame", nil, UIParent)
+            btn:SetSize(130, 24)
+            btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            btn.icon = btn:CreateTexture(nil, "ARTWORK")
+            btn.icon:Hide() -- Actions doesn't use main icon
+            
+            -- Create 4 action buttons
+            local actions = {
+                {label = "R", func = function() ReloadUI() end, tooltip = "Reload UI"},
+                {label = "E", func = function() 
+                    if EditModeManagerFrame then EditModeManagerFrame:Show() 
+                    else SlashCmdList["EDITMODE"]("") end 
+                end, tooltip = "Edit Mode"},
+                {label = "L", func = function() Logout() end, tooltip = "Logout"},
+                {label = "A", func = function() 
+                    if AddonList and AddonList:IsVisible() then AddonList:Hide()
+                    else
+                        if Settings and Settings.OpenToCategory then
+                            for _, category in ipairs(Settings.GetCategoryList()) do
+                                if category.name == ADDONS then Settings.OpenToCategory(category:GetID()) return end
+                            end
+                        elseif InterfaceOptionsFrame_OpenToCategory then
+                            InterfaceOptionsFrame_OpenToCategory(ADDONS)
+                        end
+                    end
+                end, tooltip = "Addon List"}
+            }
+            
+            btn.actionButtons = {}
+            for i, action in ipairs(actions) do
+                local ab = CreateFrame("Button", nil, btn)
+                ab:SetSize(28, 20)
+                ab:SetPoint("LEFT", (i-1) * 32 + 2, 0)
+                
+                -- Background
+                ab.bg = ab:CreateTexture(nil, "BACKGROUND")
+                ab.bg:SetAllPoints()
+                ab.bg:SetColorTexture(0.1, 0.1, 0.1, 0.9)
+                
+                -- Text
+                ab.text = ab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                ab.text:SetPoint("CENTER")
+                ab.text:SetText(action.label)
+                
+                -- Highlight
+                ab:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+                ab:GetHighlightTexture():SetBlendMode("ADD")
+                
+                -- Click handler
+                ab:RegisterForClicks("AnyUp")
+                ab:SetScript("OnClick", action.func)
+                
+                -- Simple tooltip
+                ab:SetScript("OnEnter", function(self)
+                    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                    GameTooltip:AddLine(action.tooltip, 1, 1, 1)
+                    ApplyTooltipStyle(GameTooltip)
+                    GameTooltip:Show()
+                end)
+                ab:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                
+                btn.actionButtons[i] = ab
+            end
+            
+            widgets[name] = btn
+        else
+            -- Normal widget creation
+            btn = CreateFrame("Button", nil, UIParent)
+            btn:RegisterForClicks("AnyUp") -- CRITICAL FIX: ENABLE RIGHT CLICK
+            btn.icon = btn:CreateTexture(nil, "ARTWORK")
+            btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            -- Masque support removed
+            widgets[name] = btn
+        end
     end
     btn:SetScript("OnEnter", function(self) 
         if obj.OnEnter then 
@@ -1290,10 +1393,7 @@ function BrokerBar:GetPluginOptions()
         AbstractCatalyst = "Abstract Catalyst",
         AbstractDelves = "Abstract Delves",
         AbstractMPlusTeleports = "Abstract M+ Teleports",
-        AbstractReload = "Abstract Reload",
-        AbstractEditMode = "Abstract Edit Mode",
-        AbstractLogout = "Abstract Logout",
-        AbstractAddons = "Abstract Addons"
+        AbstractActions = "Abstract Actions"
     }
 
     for name in pairs(widgets) do
