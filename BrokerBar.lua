@@ -62,7 +62,8 @@ local LABEL_MAP_FULL = {
     AbstractGold = "Gold", AbstractGuild = "Guild", AbstractLocation = "Location", 
     AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
     AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
-    AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports"
+    AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports",
+    AbstractQuickActions = "Quick Actions"
 }
 
 local LABEL_MAP_SHORT = { 
@@ -71,7 +72,8 @@ local LABEL_MAP_SHORT = {
     AbstractGold = "Gold", AbstractGuild = "Gld", AbstractLocation = "Loc", 
     AbstractSystem = "Sys", AbstractToken = "Tok", AbstractILvl = "iLvL",
     AbstractTimePlayed = "Played", AbstractCrests = "Crsts",
-    AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports"
+    AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports",
+    AbstractQuickActions = "Quick"
 }
 
 local SHORTEN_REPLACEMENTS = {
@@ -1277,7 +1279,8 @@ function BrokerBar:GetPluginOptions()
         AbstractCrests = "Abstract Crests",
         AbstractCatalyst = "Abstract Catalyst",
         AbstractDelves = "Abstract Delves",
-        AbstractMPlusTeleports = "Abstract M+ Teleports"
+        AbstractMPlusTeleports = "Abstract M+ Teleports",
+        AbstractQuickActions = "Abstract Quick Actions"
     }
 
     for name in pairs(widgets) do
