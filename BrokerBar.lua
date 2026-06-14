@@ -63,7 +63,7 @@ local LABEL_MAP_FULL = {
     AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
     AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
     AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports",
-    AbstractActions = "Actions"
+    AbstractQuickActions = "Quick Actions"
 }
 
 local LABEL_MAP_SHORT = { 
@@ -73,7 +73,7 @@ local LABEL_MAP_SHORT = {
     AbstractSystem = "Sys", AbstractToken = "Tok", AbstractILvl = "iLvL",
     AbstractTimePlayed = "Played", AbstractCrests = "Crsts",
     AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports",
-    AbstractActions = "R E L A"
+    AbstractQuickActions = "R E L A"
 }
 
 local SHORTEN_REPLACEMENTS = {
@@ -777,8 +777,8 @@ function BrokerBar:UpdateBarLayout(barID)
                 local obj = LDB:GetDataObjectByName(name)
                 
                 -- Special width for Actions broker
-                if name == "AbstractActions" then
-                    totalW = totalW + 130 + self.db.profile.spacing
+                if name == "AbstractQuickActions" then
+                    totalW = totalW + 106 + self.db.profile.spacing
                 else
                     -- FIXED TEXT CONSTRUCTION FOR WIDTH CALC
                     local bCfg = self:GetSafeConfig(name)
@@ -814,8 +814,8 @@ function BrokerBar:UpdateBarLayout(barID)
             w:ClearAllPoints()
             
             -- Special handling for Actions broker
-            if name == "AbstractActions" then
-                w:SetSize(130, db.height)
+            if name == "AbstractQuickActions" then
+                w:SetSize(106, db.height)
                 -- Update button fonts to match theme
                 for _, ab in ipairs(w.actionButtons or {}) do
                     ab:SetHeight(db.height - 4)
@@ -1021,9 +1021,9 @@ function BrokerBar:CreateWidget(name, obj)
     local btn = widgets[name]
     if not btn then
         -- Special handling for Actions broker - create custom multi-button widget
-        if name == "AbstractActions" then
+        if name == "AbstractQuickActions" then
             btn = CreateFrame("Frame", nil, UIParent)
-            btn:SetSize(130, 24)
+            btn:SetSize(106, 24)
             btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             btn.icon = btn:CreateTexture(nil, "ARTWORK")
             btn.icon:Hide() -- Actions doesn't use main icon
@@ -1053,8 +1053,8 @@ function BrokerBar:CreateWidget(name, obj)
             btn.actionButtons = {}
             for i, action in ipairs(actions) do
                 local ab = CreateFrame("Button", nil, btn)
-                ab:SetSize(28, 20)
-                ab:SetPoint("LEFT", (i-1) * 32 + 2, 0)
+                ab:SetSize(24, 20)
+                ab:SetPoint("LEFT", (i-1) * 26 + 2, 0)
                 
                 -- Background
                 ab.bg = ab:CreateTexture(nil, "BACKGROUND")
@@ -1099,7 +1099,7 @@ function BrokerBar:CreateWidget(name, obj)
     end
     
     -- Skip script handlers for Actions broker (it handles them internally on its buttons)
-    if name ~= "AbstractActions" then
+    if name ~= "AbstractQuickActions" then
         btn:SetScript("OnEnter", function(self) 
             if obj.OnEnter then 
                 obj.OnEnter(self) 
@@ -1131,7 +1131,7 @@ function BrokerBar:CreateWidget(name, obj)
             end 
         end)
     else
-        -- For Actions broker, set up tooltip on the main frame
+        -- For QuickActions broker, set up tooltip on the main frame
         btn:SetScript("OnEnter", function(self) 
             if obj.OnTooltipShow then 
                 GameTooltip:SetOwner(self, "ANCHOR_NONE")
@@ -1410,7 +1410,7 @@ function BrokerBar:GetPluginOptions()
         AbstractCatalyst = "Abstract Catalyst",
         AbstractDelves = "Abstract Delves",
         AbstractMPlusTeleports = "Abstract M+ Teleports",
-        AbstractActions = "Abstract Actions"
+        AbstractQuickActions = "Abstract Quick Actions"
     }
 
     for name in pairs(widgets) do

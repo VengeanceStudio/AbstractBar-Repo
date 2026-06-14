@@ -1,11 +1,11 @@
--- AbstractBar Actions Broker
+-- AbstractBar Quick Actions Broker
 -- Single broker that displays 4 action buttons: R, E, L, A
 -- This broker uses a custom widget created in BrokerBar.lua
 
 local LDB = LibStub("LibDataBroker-1.1")
 
 -- Register the broker
-LDB:NewDataObject("AbstractActions", { 
+LDB:NewDataObject("AbstractQuickActions", { 
     type = "data source", 
     text = "R E L A", 
     icon = "Interface\\Icons\\INV_Misc_Gear_08",
