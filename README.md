@@ -1,6 +1,6 @@
 # Abstract Bar
 
-**Version:** 1.0.0  
+**Version:** 12.0.7.1  
 **Author:** Vengeance
 
 ## Description
