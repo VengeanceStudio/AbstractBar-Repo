@@ -5,7 +5,7 @@
 
 ## Description
 
-AbstractBar is a lightweight, standalone Data Broker display bar addon for World of Warcraft. Originally part of AbstractUI, it has been extracted to work independently while maintaining full compatibility with Data Broker plugins.
+AbstractBar is a lightweight, standalone Data Broker display bar addon for World of Warcraft. 
 
 ## Features
 
@@ -100,7 +100,7 @@ The addon includes a full configuration panel accessible via:
 
 ## Notes
 
-- This addon is fully standalone and does not require AbstractUI
+- This addon is fully standalone
 - All broker modules work independently
 - Settings are saved in `AbstractBarDB` savedvariables
 
@@ -110,7 +110,6 @@ The addon includes a full configuration panel accessible via:
 
 ## Credits
 
-- Original development as part of AbstractUI
 - Uses Ace3 library framework
 - LibDataBroker standard for broker compatibility
 
