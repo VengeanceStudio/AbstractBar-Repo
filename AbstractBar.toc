@@ -1,8 +1,8 @@
 ## Interface: 120007, 120005
 ## Title: Abstract Bar
-## Version: 12.0.7.16
+## Version: 12.0.7.17
 ## Notes: Lightweight Data Broker display bar with integrated broker modules.
-## Category-enUI: Interface Enhancements
+## Category: Interface Enhancements
 ## Author: Vengeance
 ## X-Website: https://github.com/VengeanceStudio/AbstractBar
 ## X-Curse-Project-ID: 1575639
