@@ -1421,7 +1421,8 @@ function BrokerBar:GetPluginOptions()
         AbstractCatalyst = "Abstract Catalyst",
         AbstractDelves = "Abstract Delves",
         AbstractMPlusTeleports = "Abstract M+ Teleports",
-        AbstractQuickActions = "Abstract Quick Actions"
+        AbstractQuickActions = "Abstract Quick Actions",
+        AbstractStatPriority = "Abstract Stat Priority"
     }
 
     for name in pairs(widgets) do
