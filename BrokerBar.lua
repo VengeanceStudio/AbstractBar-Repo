@@ -39,7 +39,7 @@ local friendTitle, friendFooter, guildTitle, guildFooter
 local headerRefs, guildHeaderRefs = {}, {}
 
 -- Module Object References
-local friendObj, guildObj, diffObj, clockObj, sysObj, goldObj, bagObj, duraObj, locObj, tokenObj, volObj, ilvlObj, crestsObj
+local friendObj, guildObj, diffObj, clockObj, sysObj, goldObj, bagObj, duraObj, locObj, tokenObj, volObj, ilvlObj, crestsObj, statPriorityObj
 
 -- Data Cache
 local lastState = { 
@@ -63,7 +63,7 @@ local LABEL_MAP_FULL = {
     AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
     AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
     AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports",
-    AbstractQuickActions = "Quick Actions"
+    AbstractQuickActions = "Quick Actions", AbstractStatPriority = "Stat Priority"
 }
 
 local LABEL_MAP_SHORT = { 
@@ -73,7 +73,7 @@ local LABEL_MAP_SHORT = {
     AbstractSystem = "Sys", AbstractToken = "Tok", AbstractILvl = "iLvL",
     AbstractTimePlayed = "Played", AbstractCrests = "Crsts",
     AbstractCatalyst = "Cat", AbstractDelves = "Dlv", AbstractMPlusTeleports = "M+ Ports",
-    AbstractQuickActions = "R E L A"
+    AbstractQuickActions = "R E L A", AbstractStatPriority = "Stats"
 }
 
 local SHORTEN_REPLACEMENTS = {
@@ -484,6 +484,7 @@ function BrokerBar:InitializeBrokers()
     ilvlObj = LDB:GetDataObjectByName("AbstractILvl")
     clockObj = LDB:GetDataObjectByName("AbstractClock")
     crestsObj = LDB:GetDataObjectByName("AbstractCrests")
+    statPriorityObj = LDB:GetDataObjectByName("AbstractStatPriority")
 end
 
 -- ============================================================================
