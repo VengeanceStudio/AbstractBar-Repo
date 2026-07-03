@@ -63,7 +63,7 @@ local LABEL_MAP_FULL = {
     AbstractSystem = "System", AbstractToken = "Token", AbstractILvl = "Item Level",
     AbstractTimePlayed = "Abstract Time Played", AbstractCrests = "Crests",
     AbstractCatalyst = "Catalyst", AbstractDelves = "Delves", AbstractMPlusTeleports = "M+ Teleports",
-    AbstractQuickActions = "Quick Actions", AbstractStatPriority = "Stat Priority"
+    AbstractQuickActions = "Quick Actions", AbstractStatPriority = "Abstract Stat Priority"
 }
 
 local LABEL_MAP_SHORT = { 
