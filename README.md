@@ -1,9 +1,9 @@
 # AbstractBar
 
-![WoW Version](https://img.shields.io/badge/WoW-12.0.7-blue.svg) ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![WoW Version](https://img.shields.io/badge/WoW-12.1.0-blue.svg) ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
 **AbstractBar** is a lightweight, standalone Data Broker display bar addon for World of Warcraft.  
-**Version:** 12.0.7.14 | **Author:** Vengeance
+**Version:** 12.1.0.2 | **Author:** Vengeance
 
 Built for **WoW 12.0+** (Midnight expansion)
 

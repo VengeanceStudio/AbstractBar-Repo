@@ -1,6 +1,6 @@
 ## Interface: 120100
 ## Title: Abstract Bar
-## Version: 12.1.0.2
+## Version: 12.1.0.3
 ## Notes: Lightweight Data Broker display bar with integrated broker modules.
 ## Category: Interface Enhancements
 ## Author: Vengeance
