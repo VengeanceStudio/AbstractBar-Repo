@@ -79,8 +79,6 @@ function AbstractBar:RegisterOptionsPanel()
     
     -- Add to Blizzard Interface Options
     self.optionsFrame = AceConfigDialog:AddToBlizOptions("AbstractBar", "Abstract Bar")
-    
-    print("|cff00ff00AbstractBar:|r Configuration panel registered")
 end
 
 function AbstractBar:OpenConfig()
