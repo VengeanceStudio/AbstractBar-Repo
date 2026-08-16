@@ -1,16 +1,16 @@
 -- AbstractBar Crests Broker
--- Displays seasonal crest currencies (Dawncrest)
+-- Displays seasonal crest currencies (Mistcrest)
 
 local LDB = LibStub("LibDataBroker-1.1")
 local crestsObj
 
--- Currency IDs for Dawncrest season
+-- Currency IDs for Mistcrest season (Patch 12.1 - Season 2 of Midnight)
 local CREST_IDS = {
-    {id = 3383, name = "Adventurer", color = {r=0.0, g=1.0, b=0.0}},    -- Green quality
-    {id = 3341, name = "Veteran", color = {r=0.0, g=0.44, b=0.87}},       -- Blue quality
-    {id = 3343, name = "Champion", color = {r=0.64, g=0.21, b=0.93}},     -- Purple quality
-    {id = 3345, name = "Hero", color = {r=1.0, g=0.5, b=0.0}},            -- Orange quality (was 3346)
-    {id = 3347, name = "Myth", color = {r=1.0, g=0.82, b=0.0}},           -- Legendary quality (was 3348)
+    {id = 3442, name = "Adventurer", color = {r=0.0, g=1.0, b=0.0}},    -- Green quality
+    {id = 3443, name = "Veteran", color = {r=0.0, g=0.44, b=0.87}},       -- Blue quality
+    {id = 3444, name = "Champion", color = {r=0.64, g=0.21, b=0.93}},     -- Purple quality
+    {id = 3445, name = "Hero", color = {r=1.0, g=0.5, b=0.0}},            -- Orange quality
+    {id = 3446, name = "Myth", color = {r=1.0, g=0.82, b=0.0}},           -- Legendary quality
 }
 
 -- Format number with thousands separator
@@ -93,7 +93,7 @@ crestsObj = LDB:NewDataObject("AbstractCrests", {
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         SmartAnchor(GameTooltip, self)
         local r, g, b = GetColor()
-        GameTooltip:AddLine("Dawncrests", r, g, b)
+        GameTooltip:AddLine("Mistcrests", r, g, b)
         GameTooltip:AddLine(" ")
         
         -- Display all crest currencies
@@ -117,7 +117,7 @@ crestsObj = LDB:NewDataObject("AbstractCrests", {
                 end
                 
                 GameTooltip:AddDoubleLine(
-                    crest.name .. " Dawncrest",
+                    crest.name .. " Mistcrest",
                     displayStr,
                     crest.color.r, crest.color.g, crest.color.b,
                     1, 1, 1
