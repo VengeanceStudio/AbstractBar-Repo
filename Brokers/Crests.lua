@@ -4,7 +4,7 @@
 local LDB = LibStub("LibDataBroker-1.1")
 local crestsObj
 
--- Currency IDs for Mistcrest season (Patch 12.1 - Season 2 of Midnight)
+-- Currency IDs for Mistcrests season (Patch 12.1 - Season 2 of Midnight)
 local CREST_IDS = {
     {id = 3442, name = "Adventurer", color = {r=0.0, g=1.0, b=0.0}},    -- Green quality
     {id = 3443, name = "Veteran", color = {r=0.0, g=0.44, b=0.87}},       -- Blue quality
