@@ -83,7 +83,7 @@ local function CreateFriendsFrame()
     end)
 
     friendsFrame:SetScript("OnUpdate", function(self, elapsed)
-        if MouseIsOver(self) or (self.owner and MouseIsOver(self.owner)) then 
+        if self:IsMouseOver() or (self.owner and self.owner:IsMouseOver()) then 
             self.timer = 0
         else 
             self.timer = (self.timer or 0) + elapsed
