@@ -1,22 +1,22 @@
 -- AbstractBar M+ Teleports Broker
--- Displays a list of Midnight Season 1 Mythic Plus dungeon teleports
+-- Displays a list of Midnight Season 2 Mythic Plus dungeon teleports
 
 local LDB = LibStub("LibDataBroker-1.1")
 local LSM = LibStub("LibSharedMedia-3.0")
 local teleportFrame
 local teleportObj
 
--- Midnight Season 1 (12.0) Mythic Plus Dungeons with their teleport spell IDs
--- Spell IDs sourced from M+ Dungeon Teleports addon data
+-- Midnight Season 2 (12.1) Mythic Plus Dungeons with their teleport spell IDs
+-- Spell IDs sourced from Wowhead
 local DUNGEON_TELEPORTS = {
-    { name = "Algeth'ar Academy", spellID = 393273 },
-    { name = "Maisara Caverns", spellID = 1254559 },
-    { name = "Magisters' Terrace", spellID = 1254572 },
-    { name = "Nexus-Point Xenas", spellID = 1254563 },
-    { name = "Pit of Saron", spellID = 1254555 },
-    { name = "Seat of the Triumvirate", spellID = 1254551 },
-    { name = "Skyreach", spellID = 159898 },
-    { name = "Windrunner Spire", spellID = 1254400 },
+    { name = "Altar of Fangs", spellID = 1286812 },
+    { name = "The Blinding Vale", spellID = 1286801 },
+    { name = "Den of Nalorakk", spellID = 1286807 },
+    { name = "Kings' Rest", spellID = 1286831 },
+    { name = "Murder Row", spellID = 1286809 },
+    { name = "Ruby Life Pools", spellID = 393256 },
+    { name = "Temple of Sethraliss", spellID = 1286828 },
+    { name = "Voidscar Arena", spellID = 1286804 },
 }
 
 -- Create the teleports popup frame
@@ -33,7 +33,7 @@ local function CreateTeleportFrame()
     -- Title
     local titleText = teleportFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     titleText:SetPoint("TOP", 0, -10)
-    titleText:SetText("M+ Teleports - Season 1")
+    titleText:SetText("M+ Teleports - Season 2")
     teleportFrame.title = titleText
     
     -- Subtitle
