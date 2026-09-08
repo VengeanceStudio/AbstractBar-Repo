@@ -39,6 +39,13 @@ function AbstractBar:OnInitialize()
         return
     end
     
+    local LibAbstractUI = LibStub("LibAbstractUI-1.0", true)
+    if not LibAbstractUI then
+        print("|cffff0000AbstractBar Error:|r LibAbstractUI-1.0 not found!")
+        return
+    end
+    LibAbstractUI:Embed(self)
+    
     self.db = AceDB:New("AbstractBarDB", defaults, true)
     
     -- Register slash commands
@@ -51,44 +58,16 @@ function AbstractBar:OnEnable()
     C_Timer.After(0.1, function()
         self:SendMessage("AbstractBar_DB_READY")
     end)
-    
-    -- Register options panel after modules load
-    C_Timer.After(0.3, function()
-        self:RegisterOptionsPanel()
-    end)
 end
 
-function AbstractBar:RegisterOptionsPanel()
-    local AceConfig = LibStub("AceConfig-3.0")
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-    
-    if not AceConfig or not AceConfigDialog then
-        print("|cffff0000AbstractBar:|r Could not load configuration libraries")
-        return
-    end
-    
-    -- Get BrokerBar module
+function AbstractBar:OpenConfig()
     local BrokerBar = self:GetModule("BrokerBar", true)
     if not BrokerBar then
         print("|cffff0000AbstractBar:|r BrokerBar module not found")
         return
     end
     
-    -- Register options table
-    AceConfig:RegisterOptionsTable("AbstractBar", function() return BrokerBar:GetOptions() end)
-    
-    -- Add to Blizzard Interface Options
-    self.optionsFrame = AceConfigDialog:AddToBlizOptions("AbstractBar", "Abstract Bar")
-end
-
-function AbstractBar:OpenConfig()
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    if AceConfigDialog then
-        AceConfigDialog:Open("AbstractBar")
-    else
-        -- Fallback: Try to open Blizzard settings
-        Settings.OpenToCategory(self.optionsFrame)
-    end
+    self.OptionsPanel:Toggle(BrokerBar)
 end
 
 function AbstractBar:SlashCommand(input)

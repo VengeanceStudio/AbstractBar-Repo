@@ -1,6 +1,6 @@
 ## Interface: 120100
 ## Title: Abstract Bar
-## Version: 12.1.0.11
+## Version: 12.1.0.12
 ## Notes: Lightweight Data Broker display bar with integrated broker modules.
 ## Category: Interface Enhancements
 ## Author: Vengeance
@@ -25,8 +25,11 @@ libs\AceAddon-3.0\AceAddon-3.0.xml
 libs\AceConsole-3.0\AceConsole-3.0.xml
 libs\AceEvent-3.0\AceEvent-3.0.xml
 libs\AceDB-3.0\AceDB-3.0.xml
-libs\AceGUI-3.0\AceGUI-3.0.xml
-libs\AceConfig-3.0\AceConfig-3.0.xml
+
+# ------------------------------------------------------------------------------
+# ABSTRACT UI (AceGUI-free options/UI toolkit)
+# ------------------------------------------------------------------------------
+libs\LibAbstractUI-1.0\LibAbstractUI-1.0.xml
 
 # ------------------------------------------------------------------------------
 # CORE ENGINE

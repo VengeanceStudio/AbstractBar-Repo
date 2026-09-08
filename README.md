@@ -73,8 +73,7 @@ AbstractBar includes the following libraries in the `libs/` folder:
     *   AceConsole-3.0 - Slash command handling
     *   AceEvent-3.0 - Event registration
     *   AceDB-3.0 - Saved variables database
-    *   AceGUI-3.0 - GUI widget library
-    *   AceConfig-3.0 - Configuration system
+*   **LibAbstractUI-1.0** - AceGUI-free options panel and UI toolkit
 
 All dependencies are included - **no additional downloads required**.
 
