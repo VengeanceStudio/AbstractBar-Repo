@@ -51,6 +51,41 @@ function AbstractBar:OnInitialize()
     -- Register slash commands
     self:RegisterChatCommand("abar", "SlashCommand")
     self:RegisterChatCommand("abstractbar", "SlashCommand")
+    
+    self:RegisterBlizzardOptionsCategory()
+end
+
+-- Adds an "Abstract Bar" entry under Options > AddOns that opens our standalone options window
+function AbstractBar:RegisterBlizzardOptionsCategory()
+    if not Settings or not Settings.RegisterCanvasLayoutCategory then
+        return
+    end
+
+    local panel = CreateFrame("Frame")
+    panel.name = "Abstract Bar"
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Abstract Bar")
+
+    local desc = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    desc:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
+    desc:SetJustifyH("LEFT")
+    desc:SetText("Abstract Bar uses its own configuration window. Click the button below to open it.")
+
+    local openButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    openButton:SetSize(200, 24)
+    openButton:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -16)
+    openButton:SetText("Open Abstract Bar Options")
+    openButton:SetScript("OnClick", function()
+        self:OpenConfig()
+    end)
+
+    local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+    category.ID = panel.name
+    Settings.RegisterAddOnCategory(category)
+    self.settingsCategory = category
 end
 
 function AbstractBar:OnEnable()
