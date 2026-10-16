@@ -12,7 +12,7 @@ ilvlObj = LDB:NewDataObject("AbstractILvl", {
         for i=1,18 do 
             local l=GetInventoryItemLink("player",i)
             if l then 
-                tip:AddDoubleLine(l, GetDetailedItemLevelInfo(l)) 
+                tip:AddDoubleLine(l, C_Item.GetDetailedItemLevelInfo(l)) 
             end 
         end
         ApplyTooltipStyle(tip) 

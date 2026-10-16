@@ -19,11 +19,11 @@ bagObj = LDB:NewDataObject("AbstractBags", {
                 if i > 0 then
                     local link = GetInventoryItemLink("player", C_Container.ContainerIDToInventoryID(i))
                     if link then 
-                        local _, _, q = C_Item.GetItemInfo(link)
+                        local itemName, _, q = C_Item.GetItemInfo(link)
                         if q then 
                             br, bg, bb = C_Item.GetItemQualityColor(q) 
                         end
-                        name = GetItemInfo(link) 
+                        name = itemName 
                     end
                 end
                 tip:AddDoubleLine(name, (s-f).."/"..s, br, bg, bb, 1, 1, 1)
